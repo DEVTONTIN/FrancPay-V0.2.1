@@ -1,0 +1,15 @@
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* Remove default Vite styles */
+.logo {
+  display: none;
+}
+
+.card {
+  display: none;
+}
