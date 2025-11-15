@@ -1,7 +1,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRightLeft, Info, MoreHorizontal, Share2, Plus } from 'lucide-react';
+import { ArrowRightLeft, Info, Share2, Plus } from 'lucide-react';
+import { formatFreAmount } from '@/components/spaces/utilisateur/transaction-utils';
 
 export interface TransactionDisplay {
   id: string;
@@ -15,6 +16,8 @@ interface UtilisateurHomeSectionProps {
   isLoading?: boolean;
   onShare?: () => void;
   onDeposit?: () => void;
+  onShowHistory?: () => void;
+  onSelectTransaction?: (transactionId: string) => void;
 }
 
 const quickActions = [
@@ -28,6 +31,8 @@ export const UtilisateurHomeSection: React.FC<UtilisateurHomeSectionProps> = ({
   isLoading = false,
   onShare,
   onDeposit,
+  onShowHistory,
+  onSelectTransaction,
 }) => {
   return (
     <>
@@ -73,25 +78,34 @@ export const UtilisateurHomeSection: React.FC<UtilisateurHomeSectionProps> = ({
       </Card>
 
       <section>
-        <div className="mb-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-200">Recent transaction</p>
-          <p className="text-[11px] text-slate-400">
-            Ici apparaitront les transactions recentes du compte.
-          </p>
+          <button
+            type="button"
+            onClick={onShowHistory}
+            className="text-[11px] font-semibold text-emerald-300 underline-offset-2 hover:underline"
+          >
+            Tous voir
+          </button>
         </div>
+        <p className="mb-3 text-[11px] text-slate-400">
+          Ici apparaitront les transactions recentes du compte.
+        </p>
         <Card className="bg-slate-900/80 border-slate-800 rounded-3xl overflow-hidden">
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="px-4 py-6 text-center text-xs text-slate-500">Chargement des transactions…</div>
+              <div className="px-4 py-6 text-center text-xs text-slate-500">Chargement des transactions...</div>
             ) : transactions.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-slate-500">Aucune transaction recente.</div>
             ) : (
               transactions.map((tx, index) => (
-                <div
+                <button
                   key={tx.id}
-                  className={`flex justify-between items-center px-4 py-3 ${
+                  type="button"
+                  onClick={() => onSelectTransaction?.(tx.id)}
+                  className={`flex w-full justify-between items-center px-4 py-3 ${
                     index < transactions.length - 1 ? 'border-b border-slate-800/70' : ''
-                  }`}
+                  } ${onSelectTransaction ? 'hover:bg-slate-900/60 transition' : ''}`}
                 >
                   <div className="flex flex-col">
                     <p className="text-sm font-semibold">{tx.title}</p>
@@ -106,11 +120,11 @@ export const UtilisateurHomeSection: React.FC<UtilisateurHomeSectionProps> = ({
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-emerald-400' : 'text-slate-200'}`}>
-                      {tx.amount >= 0 ? `+${tx.amount.toFixed(2)}` : tx.amount.toFixed(2)}
+                      {formatFreAmount(tx.amount, { showSign: true })}
                     </p>
                     <p className="text-[11px] text-slate-400">FRE</p>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </CardContent>

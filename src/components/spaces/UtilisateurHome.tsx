@@ -10,20 +10,21 @@ import { ShareDrawer } from '@/components/spaces/utilisateur/ShareDrawer';
 import { DepositDrawer } from '@/components/spaces/utilisateur/DepositDrawer';
 import { useOnchainDepositSync } from '@/hooks/useOnchainDepositSync';
 import { UtilisateurInvestSection } from '@/components/spaces/utilisateur/UtilisateurInvestSection';
+import { TransactionHistoryPage } from '@/components/spaces/utilisateur/TransactionHistorySheet';
+import { TransactionDetailDrawer } from '@/components/spaces/utilisateur/TransactionDetailDrawer';
+import {
+  formatFreAmount,
+  formatTransactionTitle,
+  mapToTransactionDetail,
+  SupabaseTransactionRow,
+  TransactionDetail,
+} from '@/components/spaces/utilisateur/transaction-utils';
 
 type UtilisateurSection = 'home' | 'invest' | 'settings' | 'pay';
 
 interface UtilisateurHomeProps {
   activeSection: UtilisateurSection;
 }
-
-type SupabaseTransactionRow = {
-  id: string;
-  counterparty: string;
-  amountFre: number;
-  createdAt: string;
-  context: string;
-};
 
 export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection }) => {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -45,17 +46,19 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection 
   const [logoutPending, setLogoutPending] = useState(false);
   const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
   const [depositDrawerOpen, setDepositDrawerOpen] = useState(false);
+  const [historyPageVisible, setHistoryPageVisible] = useState(false);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [detailTransaction, setDetailTransaction] = useState<TransactionDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailTargetId, setDetailTargetId] = useState<string | null>(null);
 
   const mapTransactionRow = useCallback((tx: SupabaseTransactionRow): TransactionDisplay => {
+    const amountValue = Number(tx.amountFre) || 0;
     return {
       id: tx.id,
-      title:
-        tx.context === 'merchant'
-          ? `Paiement ${tx.counterparty}`
-          : tx.context === 'wallet'
-          ? `Wallet ${tx.counterparty}`
-          : `Transfert ${tx.counterparty}`,
-      amount: Number(tx.amountFre) || 0,
+      title: formatTransactionTitle(tx.context, tx.counterparty, amountValue),
+      amount: amountValue,
       createdAt: tx.createdAt,
     };
   }, []);
@@ -202,7 +205,8 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection 
   };
 
   const [balanceWhole, balanceCents] = useMemo(() => {
-    const parts = balanceFre.toFixed(2).split('.');
+    const formatted = formatFreAmount(balanceFre);
+    const parts = formatted.split(',');
     return [parts[0], parts[1] ?? '00'];
   }, [balanceFre]);
 
@@ -299,6 +303,53 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection 
     refreshProfile();
   }, [refreshProfile]);
 
+  const openTransactionDetail = useCallback(
+    async (transactionId: string, preset?: TransactionDetail) => {
+      if (!transactionId) return;
+      setDetailTargetId(transactionId);
+      setDetailDrawerOpen(true);
+      setDetailError(null);
+      if (preset) {
+        setDetailTransaction(preset);
+        setDetailLoading(false);
+        return;
+      }
+      setDetailLoading(true);
+      setDetailTransaction(null);
+      try {
+        const { data, error } = await supabase
+          .from('UserPaymentTransaction')
+          .select('id,context,counterparty,amountFre,feeFre,metadata,createdAt')
+          .eq('id', transactionId)
+          .maybeSingle();
+        if (error || !data) {
+          throw error || new Error('transaction_not_found');
+        }
+        setDetailTransaction(mapToTransactionDetail(data));
+      } catch (detailError) {
+        console.error('Transaction detail error', detailError);
+        setDetailError('Impossible de charger les détails de la transaction.');
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    []
+  );
+
+  const closeTransactionDetail = useCallback(() => {
+    setDetailDrawerOpen(false);
+    setDetailTransaction(null);
+    setDetailError(null);
+    setDetailTargetId(null);
+  }, []);
+
+  const handleHistoryTransactionSelect = useCallback(
+    (tx: TransactionDetail) => {
+      openTransactionDetail(tx.id, tx);
+    },
+    [openTransactionDetail]
+  );
+
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-slate-900 to-slate-950 text-white py-4 px-4 pb-28">
@@ -316,6 +367,8 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection 
               isLoading={transactionsLoading}
               onShare={() => setShareDrawerOpen(true)}
               onDeposit={() => setDepositDrawerOpen(true)}
+              onShowHistory={() => setHistoryPageVisible(true)}
+              onSelectTransaction={(id) => openTransactionDetail(id)}
             />
           )}
 
@@ -343,8 +396,24 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({ activeSection 
               logoutPending={logoutPending}
             />
           )}
-        </div>
       </div>
+    </div>
+
+      <TransactionHistoryPage
+        visible={historyPageVisible}
+        authUserId={authUserId}
+        onClose={() => setHistoryPageVisible(false)}
+        onSelectTransaction={handleHistoryTransactionSelect}
+      />
+
+      <TransactionDetailDrawer
+        open={detailDrawerOpen}
+        onClose={closeTransactionDetail}
+        transaction={detailTransaction}
+        isLoading={detailLoading}
+        error={detailError}
+        onReload={detailTargetId ? () => openTransactionDetail(detailTargetId) : undefined}
+      />
 
       <WalletDrawer
         open={walletDrawerOpen}
