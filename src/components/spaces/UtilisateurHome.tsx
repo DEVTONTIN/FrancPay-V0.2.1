@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { UtilisateurHeader } from '@/components/spaces/utilisateur/UtilisateurHeader';
 import { UtilisateurHomeSection, TransactionDisplay } from '@/components/spaces/utilisateur/UtilisateurHomeSection';
@@ -60,6 +60,7 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
   const [contactForm, setContactForm] = useState({ handle: '', amount: '0', note: '' });
   const [transactions, setTransactions] = useState<TransactionDisplay[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const transactionsLoadedRef = useRef(false);
   const [logoutPending, setLogoutPending] = useState(false);
   const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
   const [depositDrawerOpen, setDepositDrawerOpen] = useState(false);
@@ -91,6 +92,7 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
       setBalanceFre(0);
       setTransactions([]);
       setTransactionsLoading(false);
+      transactionsLoadedRef.current = false;
       setIsProfileLoading(false);
       return;
     }
@@ -98,7 +100,9 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     setAuthUserId(session.user.id);
     setProfileEmail(session.user.email || '');
 
-    setTransactionsLoading(true);
+    if (!transactionsLoadedRef.current) {
+      setTransactionsLoading(true);
+    }
 
     const [
       { data: profileData, error: profileError },
@@ -139,7 +143,10 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
       setTransactions(txData.map(mapTransactionRow));
     }
 
-    setTransactionsLoading(false);
+    if (!transactionsLoadedRef.current) {
+      setTransactionsLoading(false);
+      transactionsLoadedRef.current = true;
+    }
     setIsProfileLoading(false);
   }, [mapTransactionRow]);
 
