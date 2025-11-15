@@ -114,17 +114,17 @@ export const UtilisateurHomeSection: React.FC<UtilisateurHomeSectionProps> = ({
                     index < transactions.length - 1 ? 'border-b border-slate-800/70' : ''
                   } ${onSelectTransaction ? 'hover:bg-slate-900/60 transition' : ''}`}
                 >
-                  <div className="flex flex-col">
-                    <p className="text-sm font-semibold">{tx.title}</p>
-                    <p className="text-[11px] text-slate-400">
-                      {new Date(tx.createdAt).toLocaleDateString('fr-FR', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
+              <div className="flex flex-col flex-1 text-left">
+                <p className="text-[13px] font-semibold">{tx.title}</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                  {new Date(tx.createdAt).toLocaleString('fr-FR', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
                   <div className="text-right">
                     <p className={`text-sm font-semibold ${tx.amount >= 0 ? 'text-emerald-400' : 'text-slate-200'}`}>
                       {formatFreAmount(tx.amount, { showSign: true })}

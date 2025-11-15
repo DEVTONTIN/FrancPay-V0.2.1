@@ -185,7 +185,10 @@ const AppContent: React.FC = () => {
       {currentView === 'utilisateur' && (
         <UtilisateurHome
           activeSection={utilisateurSection}
-          onChangeSection={setUtilisateurSection}
+          onChangeSection={(section) => {
+            setUtilisateurSection(section);
+            setHistoryVisible(false);
+          }}
           historyVisible={historyVisible}
           onHistoryOpen={() => setHistoryVisible(true)}
           onHistoryClose={() => setHistoryVisible(false)}
@@ -200,7 +203,10 @@ const AppContent: React.FC = () => {
       {currentView === 'utilisateur' && (
         <MobileNav
           active={utilisateurSection}
-          onChange={setUtilisateurSection}
+          onChange={(tab) => {
+            setUtilisateurSection(tab);
+            setHistoryVisible(false);
+          }}
           onHistory={() => setHistoryVisible(true)}
           historyActive={historyVisible}
         />

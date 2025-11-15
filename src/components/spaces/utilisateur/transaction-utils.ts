@@ -34,13 +34,29 @@ const sanitizeMetadata = (metadata: unknown): Record<string, any> | null => {
   return null;
 };
 
-export const resolveTransactionCategory = (context: string): TransactionCategory => {
+export const resolveTransactionCategory = (
+  context: string,
+  extras?: { counterparty?: string; metadata?: Record<string, any> | null }
+): TransactionCategory => {
   const normalized = (context || '').toLowerCase();
   if (normalized.includes('deposit')) return 'deposit';
   if (normalized.includes('stake')) return 'staking';
   if (normalized.includes('merchant') || normalized.includes('payment')) return 'merchant';
   if (normalized.includes('wallet')) return 'wallet';
   if (normalized.includes('transfer') || normalized.includes('contact')) return 'transfer';
+
+  const counterparty = (extras?.counterparty || '').toLowerCase();
+  if (counterparty.includes('stake')) return 'staking';
+
+  if (extras?.metadata && typeof extras.metadata === 'object') {
+    const metadataString = JSON.stringify(extras.metadata).toLowerCase();
+    if (metadataString.includes('stake')) {
+      return 'staking';
+    }
+    if ('productCode' in extras.metadata) {
+      return 'staking';
+    }
+  }
   return 'other';
 };
 
@@ -74,7 +90,7 @@ export const transactionCategoryBadge = (category: TransactionCategory) => {
 const formatCounterparty = (value?: string | null) => value?.trim() || 'FrancPay';
 
 export const formatTransactionTitle = (context: string, counterparty: string, amount: number) => {
-  const category = resolveTransactionCategory(context);
+  const category = resolveTransactionCategory(context, { counterparty });
   const target = formatCounterparty(counterparty);
   switch (category) {
     case 'deposit':
@@ -95,7 +111,8 @@ export const formatTransactionTitle = (context: string, counterparty: string, am
 export const mapToTransactionDetail = (row: SupabaseTransactionRow): TransactionDetail => {
   const amount = Number(row.amountFre) || 0;
   const fee = Number(row.feeFre) || 0;
-  const category = resolveTransactionCategory(row.context);
+  const metadata = sanitizeMetadata(row.metadata);
+  const category = resolveTransactionCategory(row.context, { counterparty: row.counterparty, metadata });
   return {
     id: row.id,
     context: row.context,
@@ -103,7 +120,7 @@ export const mapToTransactionDetail = (row: SupabaseTransactionRow): Transaction
     amount,
     fee,
     createdAt: row.createdAt,
-    metadata: sanitizeMetadata(row.metadata),
+    metadata,
     category,
     direction: amount > 0 ? 'in' : amount < 0 ? 'out' : 'neutral',
     title: formatTransactionTitle(row.context, row.counterparty, amount),

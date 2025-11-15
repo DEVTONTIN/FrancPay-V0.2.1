@@ -262,17 +262,26 @@ export const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = ({
             </p>
           )}
           <div className="grid grid-cols-3 gap-3 text-center text-xs">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-3">
-              <p className="text-slate-400">Entrees</p>
-              <p className="text-lg font-semibold text-emerald-400">{formatFreAmount(stats.incoming)} FRE</p>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Entrées</p>
+              <p className="mt-1 text-base font-semibold text-emerald-400 tabular-nums">
+                {formatFreAmount(stats.incoming)}
+              </p>
+              <p className="text-[11px] text-slate-500">FRE</p>
             </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-3">
-              <p className="text-slate-400">Sorties</p>
-              <p className="text-lg font-semibold text-red-300">{formatFreAmount(stats.outgoing)} FRE</p>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Sorties</p>
+              <p className="mt-1 text-base font-semibold text-rose-300 tabular-nums">
+                {formatFreAmount(stats.outgoing)}
+              </p>
+              <p className="text-[11px] text-slate-500">FRE</p>
             </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-3">
-              <p className="text-slate-400">Depots</p>
-              <p className="text-lg font-semibold text-emerald-300">{formatFreAmount(stats.deposits)} FRE</p>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Depots</p>
+              <p className="mt-1 text-base font-semibold text-emerald-300 tabular-nums">
+                {formatFreAmount(stats.deposits)}
+              </p>
+              <p className="text-[11px] text-slate-500">FRE</p>
             </div>
           </div>
         </div>
