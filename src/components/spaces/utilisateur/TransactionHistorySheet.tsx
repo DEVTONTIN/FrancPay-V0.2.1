@@ -261,29 +261,6 @@ export const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = ({
               Derniere mise a jour: {lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
-          <div className="grid grid-cols-3 gap-3 text-center text-xs">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Entrées</p>
-              <p className="mt-1 text-base font-semibold text-emerald-400 tabular-nums">
-                {formatFreAmount(stats.incoming)}
-              </p>
-              <p className="text-[11px] text-slate-500">FRE</p>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Sorties</p>
-              <p className="mt-1 text-base font-semibold text-rose-300 tabular-nums">
-                {formatFreAmount(stats.outgoing)}
-              </p>
-              <p className="text-[11px] text-slate-500">FRE</p>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 px-2 py-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Depots</p>
-              <p className="mt-1 text-base font-semibold text-emerald-300 tabular-nums">
-                {formatFreAmount(stats.deposits)}
-              </p>
-              <p className="text-[11px] text-slate-500">FRE</p>
-            </div>
-          </div>
         </div>
 
         <div className="py-4">

@@ -367,6 +367,24 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     setContactStatus('error');
   };
 
+  const verifyContactHandle = useCallback(
+    async (handle: string) => {
+      const normalized = handle.replace(/^@/, '').trim().toLowerCase();
+      if (!normalized) return false;
+      const { data, error } = await supabase
+        .from('UserProfile')
+        .select('authUserId')
+        .eq('username', normalized)
+        .maybeSingle();
+      if (error) {
+        console.error('verify_contact_handle_error', error);
+        return false;
+      }
+      return Boolean(data?.authUserId);
+    },
+    []
+  );
+
   const [balanceWhole, balanceCents] = useMemo(() => {
     const formatted = formatFreAmount(balanceFre);
     const parts = formatted.split(',');
@@ -689,6 +707,7 @@ const closeTransactionDetail = useCallback(() => {
         onClose={handleContactClose}
         onConfirm={handleContactConfirm}
         onError={handleContactError}
+        onValidateRecipient={verifyContactHandle}
       />
 
       <ShareDrawer open={shareDrawerOpen} onClose={() => setShareDrawerOpen(false)} referralCode={referralCode} />
