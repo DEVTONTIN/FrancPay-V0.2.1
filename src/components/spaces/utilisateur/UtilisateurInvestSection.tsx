@@ -431,19 +431,28 @@ export const UtilisateurInvestSection: React.FC<UtilisateurInvestSectionProps> =
       group.stats.totalRewards += position.rewardAccruedFre;
       const apy = position.product?.apyPercent ?? Number(position.productSnapshot?.apyPercent ?? 0);
       group.stats.totalDailyReward += computeDailyReward(position.principalFre, apy);
-      if (position.nextRewardAt) {
-        if (!group.stats.nextRewardAt || new Date(position.nextRewardAt) < new Date(group.stats.nextRewardAt)) {
-          group.stats.nextRewardAt = position.nextRewardAt;
+      const positionNextRewardAt =
+        typeof position.nextRewardAt === 'string' && position.nextRewardAt.length > 0
+          ? position.nextRewardAt
+          : undefined;
+      const nextRewardDate = positionNextRewardAt ? new Date(positionNextRewardAt) : null;
+      if (nextRewardDate) {
+        const groupNextRewardDate = group.stats.nextRewardAt ? new Date(group.stats.nextRewardAt) : null;
+        if (!groupNextRewardDate || nextRewardDate < groupNextRewardDate) {
+          group.stats.nextRewardAt = positionNextRewardAt;
         }
       }
+      const positionLockedUntil = position.lockedUntil ?? null;
+      const positionLockedUntilDate = positionLockedUntil ? new Date(positionLockedUntil) : null;
       const lockActive =
         Boolean(position.product?.isLocked ?? position.productSnapshot?.isLocked ?? false) &&
-        position.lockedUntil &&
-        new Date(position.lockedUntil) > new Date();
-      if (lockActive) {
+        positionLockedUntilDate !== null &&
+        positionLockedUntilDate > new Date();
+      if (lockActive && positionLockedUntilDate && positionLockedUntil) {
         group.stats.isLocked = true;
-        if (!group.stats.lockedUntil || new Date(position.lockedUntil) > new Date(group.stats.lockedUntil)) {
-          group.stats.lockedUntil = position.lockedUntil;
+        const groupLockedUntilDate = group.stats.lockedUntil ? new Date(group.stats.lockedUntil) : null;
+        if (!groupLockedUntilDate || positionLockedUntilDate > groupLockedUntilDate) {
+          group.stats.lockedUntil = positionLockedUntil;
         }
       }
     });
