@@ -6,8 +6,6 @@ import { UtilisateurHeader, type BalanceDisplayCurrency } from '@/components/spa
 import { UtilisateurHomeSection, TransactionDisplay } from '@/components/spaces/utilisateur/UtilisateurHomeSection';
 import { UtilisateurPaySection } from '@/components/spaces/utilisateur/UtilisateurPaySection';
 import { UtilisateurSettingsSection, ProfileFormState } from '@/components/spaces/utilisateur/UtilisateurSettingsSection';
-import { WalletDrawer } from '@/components/spaces/utilisateur/WalletDrawer';
-import { ContactDrawer } from '@/components/spaces/utilisateur/ContactDrawer';
 import { ShareDrawer } from '@/components/spaces/utilisateur/ShareDrawer';
 import { DepositDrawer } from '@/components/spaces/utilisateur/DepositDrawer';
 import { ProfessionalApplicationDrawer } from '@/components/spaces/utilisateur/ProfessionalApplicationDrawer';
@@ -81,12 +79,10 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
   const [transfersLocked, setTransfersLocked] = useState(false);
   const [transferLockReason, setTransferLockReason] = useState('');
 
-  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [walletStatus, setWalletStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [walletMessage, setWalletMessage] = useState<string | null>(null);
   const [walletForm, setWalletForm] = useState({ address: '', amount: '0', note: '' });
 
-  const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactStatus, setContactStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [contactFeedback, setContactFeedback] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({ handle: '', amount: '0', note: '' });
@@ -445,19 +441,17 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     []
   );
 
-  const handleWalletClose = () => {
-    setWalletDrawerOpen(false);
+  const handleWalletClose = useCallback(() => {
     setWalletStatus('idle');
     setWalletMessage(null);
     setWalletForm({ address: '', amount: '0', note: '' });
-  };
+  }, []);
 
-  const handleContactClose = () => {
-    setContactDrawerOpen(false);
+  const handleContactClose = useCallback(() => {
     setContactStatus('idle');
     setContactFeedback(null);
     setContactForm({ handle: '', amount: '0', note: '' });
-  };
+  }, []);
 
   const handleWalletConfirm = useCallback(async () => {
     const amountValue = Number(walletForm.amount) || 0;
@@ -528,16 +522,14 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     async (handle: string) => {
       const normalized = handle.replace(/^@/, '').trim().toLowerCase();
       if (!normalized) return false;
-      const { data, error } = await supabase
-        .from('UserProfile')
-        .select('authUserId')
-        .eq('username', normalized)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('verify_user_handle', {
+        p_handle: handle,
+      });
       if (error) {
         console.error('verify_contact_handle_error', error);
         return false;
       }
-      return Boolean(data?.authUserId);
+      return Boolean(data);
     },
     []
   );
@@ -741,15 +733,19 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     onSendOpen();
   }, [transfersLocked, transferLockReason, onSendOpen, toast]);
 
+  const handleSendPageClose = useCallback(() => {
+    onSendClose();
+    handleContactClose();
+    handleWalletClose();
+  }, [onSendClose, handleContactClose, handleWalletClose]);
+
   useEffect(() => {
-    if (transfersLocked) {
-      setContactDrawerOpen(false);
-      setWalletDrawerOpen(false);
-      if (sendVisible) {
-        onSendClose();
-      }
+    if (transfersLocked && sendVisible) {
+      onSendClose();
+      handleContactClose();
+      handleWalletClose();
     }
-  }, [transfersLocked, sendVisible, onSendClose]);
+  }, [transfersLocked, sendVisible, onSendClose, handleContactClose, handleWalletClose]);
 
   const openTransactionDetail = useCallback(
     async (transactionId: string, preset?: TransactionDetail) => {
@@ -954,9 +950,22 @@ const closeTransactionDetail = useCallback(() => {
 
       <SendFundsPage
         visible={sendVisible}
-        onClose={onSendClose}
-        onSendUser={() => setContactDrawerOpen(true)}
-        onSendTon={() => setWalletDrawerOpen(true)}
+        onClose={handleSendPageClose}
+        contactForm={contactForm}
+        contactStatus={contactStatus}
+        contactStatusMessage={contactFeedback}
+        onContactChange={setContactForm}
+        onContactConfirm={handleContactConfirm}
+        onContactError={handleContactError}
+        onValidateRecipient={verifyContactHandle}
+        onResetContact={handleContactClose}
+        walletForm={walletForm}
+        walletStatus={walletStatus}
+        walletStatusMessage={walletMessage}
+        onWalletChange={setWalletForm}
+        onWalletConfirm={handleWalletConfirm}
+        onWalletError={handleWalletError}
+        onResetWallet={handleWalletClose}
       />
 
       <TransactionDetailDrawer
@@ -966,29 +975,6 @@ const closeTransactionDetail = useCallback(() => {
         isLoading={detailLoading}
         error={detailError}
         onReload={detailTargetId ? () => openTransactionDetail(detailTargetId) : undefined}
-      />
-
-      <WalletDrawer
-        open={walletDrawerOpen}
-        form={walletForm}
-        status={walletStatus}
-        statusMessage={walletMessage}
-        onChange={setWalletForm}
-        onClose={handleWalletClose}
-        onConfirm={handleWalletConfirm}
-        onError={handleWalletError}
-      />
-
-      <ContactDrawer
-        open={contactDrawerOpen}
-        form={contactForm}
-        status={contactStatus}
-        statusMessage={contactFeedback}
-        onChange={setContactForm}
-        onClose={handleContactClose}
-        onConfirm={handleContactConfirm}
-        onError={handleContactError}
-        onValidateRecipient={verifyContactHandle}
       />
 
       <ShareDrawer open={shareDrawerOpen} onClose={() => setShareDrawerOpen(false)} referralCode={referralCode} />

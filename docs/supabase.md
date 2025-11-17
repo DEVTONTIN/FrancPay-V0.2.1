@@ -7,7 +7,7 @@ Ce dossier explique comment piloter toute la donnee FrancPay depuis Supabase/Pos
 1. Cree un projet Supabase et recupere :
    - `DATABASE_URL` (connexion `service_role`, onglet **Project Settings -> Database**).
    - `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` (onglet **Project Settings -> API**).
-2. Copie `.env.example` vers `.env` et remplis les valeurs ci-dessus + la valeur de `TONCONNECT_APP_DOMAIN` (domaine du manifest).  
+2. Copie `.env.example` vers `.env` et remplis les valeurs ci-dessus (les variables TonConnect sont devenues optionnelles; ne les ajoute que si tu redeploies l’ancienne Edge Function).  
 3. Installe les dependances : `npm install`.
 
 ## 2. Appliquer les migrations dans Supabase
@@ -39,74 +39,23 @@ npx prisma generate
 
 | Table | Description |
 | --- | --- |
-| `Company` | Entreprises clientes FrancPay (KYC, contacts, pays, fuseau). |
-| `CompanyUser` | Collaborateurs internes de chaque entreprise avec roles (`SUPER_ADMIN` -> `VIEWER`). |
-| `Wallet` | Adresses TON autorisees par l'entreprise, avec statut (`ACTIVE`, `SUSPENDED`, `ARCHIVED`). |
-| `Client` | Clients finaux auxquels une entreprise envoie des demandes de paiement. |
-| `PaymentRequest` | Intention de paiement (montant, devise, wallet, client, date d'expiration, statut). |
-| `PaymentSettlement` | Correspondance avec une transaction on-chain (hash TON, montant recu, frais reseau). |
-| `PaymentStatusEvent` | Historique chronologique des changements de statut d'une demande. |
-| `WalletConnection` | Lie un utilisateur/entreprise a une adresse TON, stocke la preuve (`ton-proof`) et l'etat de verification (`PENDING`, `VERIFIED`, `REVOKED`). |
-| `WalletSession` | Sessions d'auth direct par wallet : token cote serveur, expiration, IP/User-Agent pour audit. |
-| `WebhookSecret` | Webhooks entreprise (URL + secret) pour notifier les SI externes. |
-| `AuditLog` | Tracabilite de toutes les actions sensibles (qui a fait quoi / quand / IP). |
 | `UserProfile` | Profils auth (username, email, type UTILISATEUR/PROFESSIONAL, parrainage). |
+| `UserWalletBalance` | Solde global FRE par utilisateur (maj auto via RPC/trigger). |
+| `UserPaymentTransaction` | Journal des transactions utilisateur (paiements wallet, transferts, staking). |
+| `ProfessionalApplication` | Dossiers d’homologation pro envoyes depuis l’espace utilisateur. |
+| `StakeProduct` | Produits de staking publies (APY, lock period, metadata). |
+| `UserStakePosition` | Positions de staking ouvertes par les utilisateurs. |
+| `UserStakeLedger` | Journal d’audit staking (STAKE/UNSTAKE/REWARD). |
+| `OnchainDeposit` | Traque les depots TON detectes par le watcher + memos FRP. |
+| `FrePriceSnapshot` | Historique des prix FRE/TON/USD/EUR pour la conversion. |
+| `ApplicationFeeLedger` | Ledger consolidant les frais preleves (transferts, staking, wallet). |
+| `ApplicationFeeBalance` | Agregat global des frais (1 seule ligne `id=1`). |
 
-Toutes les regles de securite Supabase (Row Level Security) devront etre ecrites pour chaque table afin de limiter les acces selon l'entreprise et le role utilisateur. Utilise les colonnes `companyId`, `userId` et `role` pour exprimer ces politiques.
+Toutes les regles de securite Supabase (Row Level Security) doivent etre actives sur ces tables pour limiter les acces au `auth.uid()` courant (ou au `service_role` cote backend).
 
 ### Flow de connexion directe par wallet TON
 
-1. Le front (TonConnect) demande une `ton-proof` au wallet et envoie le payload + signature vers l'Edge Function `ton-connect-auth`.
-2. L'Edge Function:
-   - valide cryptographiquement la signature `ton-proof` (Ed25519 + double SHA-256 comme specifie dans TonConnect),
-   - verifie que `domain.value` correspond a `TONCONNECT_APP_DOMAIN`,
-   - upsert la ligne `WalletConnection` avec statut `VERIFIED` et les metadonnees associees,
-   - cree une ligne `WalletSession` en generant un `sessionToken` JWT-like base64-url (expiration controlee via `TON_WALLET_SESSION_TTL_SECONDS`).
-3. Le front stocke `sessionToken` pour l'utiliser dans ses appels subsequents (ex: l'envoyer dans l'entete `Authorization: Bearer ...` vers tes API privees).
-4. Sur logout, appelle un endpoint qui met a jour `WalletSession.revokedAt` et/ou `WalletConnection.status`.
-
-Les politiques RLS doivent limiter l'acces aux lignes en fonction de `companyId` + `userId`. Typiquement: `companyId = auth.jwt()->>'company_id'`.
-
-## 5. Edge Function `ton-connect-auth`
-
-Fichier: `supabase/functions/ton-connect-auth/index.ts`
-
-- Deno Edge Function (deployable via `supabase functions deploy ton-connect-auth --project-ref <PROJECT_REF>`).
-- Requiert les variables d'environnement suivantes (configurer via `supabase secrets set` ou `.env.local`):
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `TONCONNECT_APP_DOMAIN`
-  - `TON_WALLET_SESSION_TTL_SECONDS` (optionnel, defaut 86400s)
-- Payload attendu (`POST`):
-
-```jsonc
-{
-  "companyId": "uuid",
-  "userId": "uuid | null",
-  "address": "0:abcdef...",         // format raw `workchain:hash`
-  "publicKey": "hex",
-  "walletAppName": "Tonkeeper",
-  "deviceInfo": "iOS 18.1 / build ...",
-  "proof": {
-    "domain": { "lengthBytes": 18, "value": "app.francpay.com" },
-    "payload": "base64 nonce",
-    "signature": "base64 signature",
-    "timestamp": "1731589000"
-  }
-}
-```
-
-Reponse:
-
-```json
-{
-  "connectionId": "uuid",
-  "sessionToken": "base64url",
-  "expiresAt": "2025-11-14T01:23:45.000Z"
-}
-```
-
-En cas d'echec (signature invalide, domaine incorrect, etc.), la fonction renvoie un `400` avec la cle `error`.
+Le PoC TonConnect reste documente dans `supabase/functions/ton-connect-auth`, mais les tables `WalletConnection`/`WalletSession` ont ete archivees. Si tu redeploies l’auth par proof, prevois une nouvelle schema dedie (ou recree ces tables via une migration separee).
 
 ## 4. Ajouter de nouvelles entites
 
@@ -124,14 +73,18 @@ Tu disposes ainsi d'un historique versionne et reproductible pour toutes les evo
 
 ## 6. Row Level Security (RLS)
 
-Le script `supabase/rls-policies.sql` ajoute les fonctions utilitaires (`auth_company_id`, `auth_company_role`, `auth_user_id`), active RLS + `force row level security` et declare toutes les politiques :
+Le script `supabase/rls-policies.sql` recrée trois helpers (`auth_role`, `auth_user_id`, `is_service_role`), active RLS + `force row level security` et applique les politiques suivantes :
 
-- restriction des lignes au `company_id` present dans le JWT (`auth.jwt()->>'company_id'`) ;
-- gestion des comptes/utilisateurs uniquement par `SUPER_ADMIN`/`COMPANY_ADMIN` ;
-- operations quotidiennes (`Wallet`, `Client`, `PaymentRequest`) ouvertes aux roles `MANAGER`/`OPERATOR` ;
-- `PaymentSettlement` / `PaymentStatusEvent` lisibles par l'entreprise, modifications reservees aux jobs service-role ;
-- `WalletConnection`/`WalletSession` : seuls les membres de l'entreprise (ou roles eleves) peuvent creer/lire leurs connexions TonConnect ;
-- `AuditLog` consultable uniquement par les roles eleves.
+- `UserProfile`, `UserWalletBalance`, `UserPaymentTransaction`, `ProfessionalApplication`, `UserStakePosition`, `UserStakeLedger`, `OnchainDeposit`
+  - lecture limitée à `auth.uid()` (ou `service_role`)
+  - écriture autorisée à l'utilisateur lorsqu'il agit sur sa propre ligne (ou au `service_role`/functions security definer)
+- `StakeProduct`, `FrePriceSnapshot`
+  - lecture publique (`anon`/`authenticated`)
+  - modifications réservées au `service_role`
+- `ApplicationFeeLedger` & `ApplicationFeeBalance`
+  - lecture/écriture uniquement via la clé `service_role`
+
+Pense à exécuter `psql "$DATABASE_URL" -f supabase/rls-policies.sql` après toute création de base pour forcer ces règles.
 
 Application :
 
@@ -139,7 +92,7 @@ Application :
 psql "$DATABASE_URL" -f supabase/rls-policies.sql
 ```
 
-⚠️ Assure-toi qu'au moment de l'authentification tu ajoutes dans les tokens Supabase les claims `company_id`, `role` et `sub` (CompanyUser.id). Sans ces metadonnees, toutes les requetes seront rejetees par les politiques RLS.
+⚠️ Assure-toi qu'au moment de l'authentification tu ajoutes au moins les claims par defaut (`sub` = `auth.uid()` et `role` = `anon`/`authenticated`/`service_role`). Pas de `company_id` requis desormais, mais pense a creer la ligne `UserProfile` correspondant a `auth.uid()` juste apres l'inscription.
 
 ## 7. Authentification email / Google
 
@@ -149,7 +102,7 @@ Le portail `AuthPortal` utilise Supabase Auth (email+mot de passe + Google OAuth
 2. **Redirect URLs** :
    - Ajoute `https://towallet.site/auth/callback` (production) et `http://localhost:5173/auth/callback` (local) dans la liste des URLs de redirection autorisées.
 3. **Env vars front** : `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` doivent etre présents côté Netlify/Vercel.
-4. **Claims personnalisés** : après création de compte, mets à jour `auth.admin.updateUserById` (via Edge Function) pour remplir les claims JWT `company_id` / `role` requis par les politiques RLS.
+4. **Claims personnalisés** : si tu ajoutes des métadonnées custom au JWT, assure-toi juste qu'elles n'écrasent pas `sub` (utilisé par les policies) et que les comptes service utilisent bien la clé `service_role`.
 5. **Espace ciblé** : la page `/auth/callback` lit le paramètre `space` (`professional` ou `utilisateur`) puis redirige vers `/?space=...` et stocke la préférence `francpay_last_space`.
 
 Sans ces réglages, les formulaires de connexion resteront bloqués (erreurs 400/redirect refusé).

@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { Toaster } from '@/components/ui/toaster';
-import { useTonWallet } from '@/hooks/useTonWallet';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { AuthPortal } from '@/components/auth/AuthPortal';
 import { SignupDrawer } from '@/components/auth/SignupDrawer';
@@ -26,8 +24,6 @@ import { AuthCallback } from '@/components/auth/AuthCallback';
 import { supabase } from '@/lib/supabaseClient';
 import './App.css';
 
-const manifestUrl = 'https://raw.githubusercontent.com/ton-community/tutorials/main/03-wallet/test/public/tonconnect-manifest.json';
-
 type AppView = 'landing' | 'space-selector' | 'utilisateur' | 'professional';
 
 const AppContent: React.FC = () => {
@@ -41,7 +37,6 @@ const AppContent: React.FC = () => {
   const [historyVisible, setHistoryVisible] = useState(false);
   const [sendVisible, setSendVisible] = useState(false);
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
-  const { isConnected } = useTonWallet();
 
   useEffect(() => {
     if (window.location.hash && window.location.hash.includes('access_token')) {
@@ -310,10 +305,10 @@ function App() {
   }, []);
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl}>
+    <>
       {isAuthCallback ? <AuthCallback /> : <AppContent />}
       <Toaster />
-    </TonConnectUIProvider>
+    </>
   );
 }
 

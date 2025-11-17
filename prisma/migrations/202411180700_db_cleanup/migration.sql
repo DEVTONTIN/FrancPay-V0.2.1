@@ -1,4 +1,28 @@
--- Helper functions to inspect Supabase JWT claims
+-- Remove unused B2B tables and harden RLS for the consumer schema
+
+drop view if exists "UserWalletHistoryView";
+
+drop table if exists "WalletSession" cascade;
+drop table if exists "WalletConnection" cascade;
+drop table if exists "AuditLog" cascade;
+drop table if exists "PaymentStatusEvent" cascade;
+drop table if exists "PaymentSettlement" cascade;
+drop table if exists "PaymentRequest" cascade;
+drop table if exists "WebhookSecret" cascade;
+drop table if exists "Client" cascade;
+drop table if exists "Wallet" cascade;
+drop table if exists "CompanyUser" cascade;
+drop table if exists "Company" cascade;
+
+drop type if exists "WalletConnectionStatus" cascade;
+drop type if exists "SettlementStatus" cascade;
+drop type if exists "PaymentRequestStatus" cascade;
+drop type if exists "WalletStatus" cascade;
+drop type if exists "UserRole" cascade;
+
+drop function if exists auth_company_id();
+drop function if exists auth_company_role();
+
 create or replace function auth_role() returns text
   language sql
   stable
@@ -13,6 +37,7 @@ as $$
   select auth.uid();
 $$;
 
+-- Shared predicates
 create or replace function is_service_role() returns boolean
   language sql
   stable
@@ -20,7 +45,7 @@ as $$
   select auth_role() = 'service_role';
 $$;
 
--- User profiles
+-- UserProfile policies
 alter table "UserProfile" enable row level security;
 alter table "UserProfile" force row level security;
 
@@ -41,7 +66,7 @@ create policy "user_profile_write" on "UserProfile"
     or is_service_role()
   );
 
--- Wallet balances
+-- UserWalletBalance policies
 alter table "UserWalletBalance" enable row level security;
 alter table "UserWalletBalance" force row level security;
 
@@ -57,7 +82,7 @@ create policy "wallet_balance_write" on "UserWalletBalance"
   for all using (is_service_role())
   with check (is_service_role());
 
--- User payments
+-- UserPaymentTransaction policies
 alter table "UserPaymentTransaction" enable row level security;
 alter table "UserPaymentTransaction" force row level security;
 
@@ -73,7 +98,7 @@ create policy "user_payment_write" on "UserPaymentTransaction"
   for all using (is_service_role())
   with check (is_service_role());
 
--- Professional applications
+-- ProfessionalApplication policies
 alter table "ProfessionalApplication" enable row level security;
 alter table "ProfessionalApplication" force row level security;
 
@@ -109,7 +134,7 @@ create policy "professional_application_manage" on "ProfessionalApplication"
     )
   );
 
--- Staking
+-- Stake tables
 alter table "StakeProduct" enable row level security;
 alter table "StakeProduct" force row level security;
 
@@ -162,7 +187,7 @@ create policy "stake_ledger_manage" on "UserStakeLedger"
     or is_service_role()
   );
 
--- On-chain deposits
+-- OnchainDeposit policies
 alter table "OnchainDeposit" enable row level security;
 alter table "OnchainDeposit" force row level security;
 
@@ -195,7 +220,7 @@ create policy "app_fee_balance_access" on "ApplicationFeeBalance"
   for all using (is_service_role())
   with check (is_service_role());
 
--- Market data
+-- Market data (readable by everyone)
 alter table "FrePriceSnapshot" enable row level security;
 alter table "FrePriceSnapshot" force row level security;
 

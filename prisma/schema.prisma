@@ -7,247 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  SUPER_ADMIN
-  COMPANY_ADMIN
-  MANAGER
-  OPERATOR
-  VIEWER
-}
-
-enum WalletStatus {
-  ACTIVE
-  SUSPENDED
-  ARCHIVED
-}
-
-enum PaymentRequestStatus {
-  DRAFT
-  PENDING
-  PROCESSING
-  CONFIRMED
-  FAILED
-  CANCELLED
-}
-
-enum SettlementStatus {
-  PENDING
-  CONFIRMED
-  FAILED
-}
-
-enum WalletConnectionStatus {
-  PENDING
-  VERIFIED
-  REVOKED
-}
-
 enum ProfileType {
   UTILISATEUR
   PROFESSIONAL
 }
 
-model Company {
-  id                 String             @id @default(uuid())
-  name               String
-  legalName          String?
-  registrationNumber String?            @unique
-  contactEmail       String
-  contactPhone       String?
-  countryCode        String?
-  timezone           String?
-  kycStatus          String?            @default("pending")
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  users              CompanyUser[]
-  wallets            Wallet[]
-  clients            Client[]
-  paymentRequests    PaymentRequest[]
-  auditLogs          AuditLog[]
-  walletConnections  WalletConnection[]
-  webhookSecrets     WebhookSecret[]
-
-  @@index([name])
+enum ProfessionalApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
-model CompanyUser {
-  id                 String             @id @default(uuid())
-  companyId          String
-  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  email              String
-  fullName           String
-  role               UserRole           @default(OPERATOR)
-  phone              String?
-  invitationAccepted Boolean            @default(false)
-  lastLoginAt        DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  auditLogs          AuditLog[]
-  walletConnections  WalletConnection[]
-
-  @@unique([companyId, email])
-  @@index([companyId])
+enum StakePositionStatus {
+  ACTIVE
+  REDEEMED
+  CANCELLED
 }
 
-model Wallet {
-  id         String           @id @default(uuid())
-  companyId  String
-  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  label      String
-  tonAddress String           @unique
-  publicKey  String?
-  status     WalletStatus     @default(ACTIVE)
-  isPrimary  Boolean          @default(false)
-  metadata   Json?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  payments   PaymentRequest[]
-
-  @@index([companyId])
-}
-
-model Client {
-  id          String           @id @default(uuid())
-  companyId   String
-  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  email       String?
-  phone       String?
-  externalRef String?
-  metadata    Json?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  requests    PaymentRequest[]
-
-  @@index([companyId])
-  @@index([externalRef])
-}
-
-model PaymentRequest {
-  id           String               @id @default(uuid())
-  companyId    String
-  walletId     String
-  clientId     String?
-  reference    String               @unique
-  amount       Decimal              @db.Decimal(18, 2)
-  currency     String               @default("XOF")
-  description  String?
-  status       PaymentRequestStatus @default(PENDING)
-  expiresAt    DateTime?
-  metadata     Json?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  wallet       Wallet               @relation(fields: [walletId], references: [id], onDelete: Restrict)
-  client       Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  settlements  PaymentSettlement[]
-  statusEvents PaymentStatusEvent[]
-
-  @@index([companyId])
-  @@index([walletId])
-  @@index([clientId])
-}
-
-model PaymentSettlement {
-  id               String           @id @default(uuid())
-  paymentRequestId String
-  tonTxHash        String?          @unique
-  amountRequested  Decimal          @db.Decimal(18, 2)
-  amountReceived   Decimal?         @db.Decimal(18, 2)
-  networkFee       Decimal?         @db.Decimal(18, 2)
-  status           SettlementStatus @default(PENDING)
-  failureReason    String?
-  settledAt        DateTime?
-  rawPayload       Json?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  paymentRequest   PaymentRequest   @relation(fields: [paymentRequestId], references: [id], onDelete: Cascade)
-
-  @@index([paymentRequestId])
-}
-
-model PaymentStatusEvent {
-  id               String               @id @default(uuid())
-  paymentRequestId String
-  status           PaymentRequestStatus
-  notes            String?
-  context          Json?
-  createdAt        DateTime             @default(now())
-  paymentRequest   PaymentRequest       @relation(fields: [paymentRequestId], references: [id], onDelete: Cascade)
-
-  @@index([paymentRequestId])
-}
-
-model WebhookSecret {
-  id         String    @id @default(uuid())
-  companyId  String
-  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name       String
-  secret     String
-  url        String
-  createdAt  DateTime  @default(now())
-  lastUsedAt DateTime?
-  isActive   Boolean   @default(true)
-
-  @@index([companyId])
-}
-
-model WalletConnection {
-  id                 String                 @id @default(uuid())
-  companyId          String
-  userId             String?
-  tonAddress         String
-  publicKey          String?
-  walletAppName      String?
-  deviceInfo         String?
-  status             WalletConnectionStatus @default(PENDING)
-  lastProofPayload   String?
-  lastProofSignature String?
-  proofIssuedAt      DateTime?
-  proofVerifiedAt    DateTime?
-  revokedAt          DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  sessions           WalletSession[]
-  company            Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user               CompanyUser?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@unique([companyId, tonAddress])
-  @@index([companyId])
-  @@index([userId])
-}
-
-model WalletSession {
-  id                 String           @id @default(uuid())
-  walletConnectionId String
-  sessionToken       String           @unique
-  expiresAt          DateTime
-  revokedAt          DateTime?
-  lastActivityAt     DateTime?
-  ipAddress          String?
-  userAgent          String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  connection         WalletConnection @relation(fields: [walletConnectionId], references: [id], onDelete: Cascade)
-
-  @@index([walletConnectionId])
-}
-
-model AuditLog {
-  id        String       @id @default(uuid())
-  companyId String
-  userId    String?
-  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user      CompanyUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  entity    String
-  entityId  String?
-  ipAddress String?
-  payload   Json?
-  createdAt DateTime     @default(now())
-
-  @@index([companyId])
-  @@index([userId])
+enum StakeLedgerType {
+  STAKE
+  UNSTAKE
+  REWARD
 }
 
 model UserProfile {
@@ -259,6 +39,179 @@ model UserProfile {
   referralCode String?
   createdAt    DateTime    @default(now())
 
+  walletBalance        UserWalletBalance?
+  transactions         UserPaymentTransaction[]
+  applications         ProfessionalApplication[] @relation("UserProfileApplications")
+  reviewedApplications ProfessionalApplication[] @relation("ProfessionalApplicationReviewer")
+  stakePositions       UserStakePosition[]
+  stakeLedgers         UserStakeLedger[]
+  deposits             OnchainDeposit[]
+
   @@index([profileType])
   @@index([email])
+}
+
+model ProfessionalApplication {
+  id                  String                         @id @default(uuid())
+  userProfileId       String
+  authUserId          String?
+  contactEmail        String
+  contactPhone        String?
+  lastName            String
+  firstName           String
+  addressLine1        String?
+  postalCode          String?
+  city                String?
+  country             String?
+  companyName         String
+  legalForm           String?
+  siretNumber         String                         @unique
+  tvaNumber           String?
+  businessWebsite     String?
+  activityDescription String?
+  status              ProfessionalApplicationStatus  @default(PENDING)
+  reviewerId          String?
+  reviewedAt          DateTime?
+  reviewNotes         String?
+  submittedAt         DateTime                       @default(now())
+  updatedAt           DateTime                       @default(now())
+
+  userProfile UserProfile @relation("UserProfileApplications", fields: [userProfileId], references: [id], onDelete: Cascade)
+  reviewer    UserProfile? @relation("ProfessionalApplicationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([userProfileId])
+  @@index([status])
+}
+
+model UserWalletBalance {
+  id         String   @id @default(uuid())
+  authUserId String   @unique
+  balanceFre Decimal  @db.Decimal(18, 2)
+  updatedAt  DateTime @default(now())
+
+  profile UserProfile @relation(fields: [authUserId], references: [authUserId], onDelete: Cascade)
+}
+
+model UserPaymentTransaction {
+  id           String   @id @default(uuid())
+  authUserId   String
+  context      String
+  counterparty String
+  amountFre    Decimal  @db.Decimal(18, 2)
+  feeFre       Decimal  @db.Decimal(18, 2) @default(0)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  profile UserProfile @relation(fields: [authUserId], references: [authUserId], onDelete: Cascade)
+
+  @@index([authUserId])
+}
+
+model ApplicationFeeLedger {
+  id         String   @id @default(uuid())
+  context    String
+  reference  String?
+  amountFre  Decimal  @db.Decimal(18, 2)
+  metadata   Json?    @default(dbgenerated("'{}'::jsonb"))
+  createdAt  DateTime @default(now())
+}
+
+model ApplicationFeeBalance {
+  id         Int      @id @default(1)
+  balanceFre Decimal  @db.Decimal(18, 2)
+  updatedAt  DateTime @default(now())
+}
+
+model StakeProduct {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  title         String
+  description   String?
+  apyPercent    Decimal  @db.Decimal(6, 3)
+  lockPeriodDays Int      @default(0)
+  minAmountFre  Decimal  @db.Decimal(18, 2) @default(0)
+  maxAmountFre  Decimal? @db.Decimal(18, 2)
+  isLocked      Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  metadata      Json     @default(dbgenerated("'{}'::jsonb"))
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  positions UserStakePosition[]
+
+  @@index([isActive])
+}
+
+model UserStakePosition {
+  id               String              @id @default(uuid())
+  authUserId       String
+  productId        String
+  principalFre     Decimal             @db.Decimal(18, 2)
+  rewardAccruedFre Decimal             @db.Decimal(18, 2) @default(0)
+  status           StakePositionStatus @default(ACTIVE)
+  lockedUntil      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @default(now())
+  lastRewardAt     DateTime?
+  nextRewardAt     DateTime?
+  redeemedAt       DateTime?
+  productSnapshot  Json                @default(dbgenerated("'{}'::jsonb"))
+
+  product StakeProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  profile UserProfile  @relation(fields: [authUserId], references: [authUserId], onDelete: Cascade)
+  ledger  UserStakeLedger[]
+
+  @@index([authUserId])
+  @@index([productId])
+  @@index([status])
+}
+
+model UserStakeLedger {
+  id         String          @id @default(uuid())
+  positionId String
+  authUserId String
+  entryType  StakeLedgerType
+  amountFre  Decimal         @db.Decimal(18, 2)
+  note       String?
+  context    Json?
+  createdAt  DateTime        @default(now())
+
+  position UserStakePosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  profile  UserProfile       @relation(fields: [authUserId], references: [authUserId], onDelete: Cascade)
+
+  @@index([positionId])
+  @@index([authUserId])
+}
+
+model OnchainDeposit {
+  id           String   @id @default(uuid())
+  txHash       String   @unique
+  walletAddress String
+  memoTag      String?
+  authUserId   String?
+  amountTon    Decimal
+  amountFre    Decimal
+  status       String   @default("PENDING")
+  detectedAt   DateTime @default(now())
+  creditedAt   DateTime?
+  updatedAt    DateTime @default(now())
+  metadata     Json     @default(dbgenerated("'{}'::jsonb"))
+
+  profile UserProfile? @relation(fields: [authUserId], references: [authUserId], onDelete: SetNull)
+
+  @@index([status])
+}
+
+model FrePriceSnapshot {
+  id           String   @id @default(uuid())
+  source       String   @default("gecko_terminal")
+  priceUsd     Decimal  @db.Decimal(18, 8)
+  priceEur     Decimal  @db.Decimal(18, 8)
+  priceTon     Decimal  @db.Decimal(18, 12)
+  tonPriceUsd  Decimal  @db.Decimal(18, 8)
+  usdToEurRate Decimal  @db.Decimal(18, 8)
+  rawPayload   Json?
+  fetchedAt    DateTime @default(now())
+
+  @@index([fetchedAt(sort: Desc)], map: "FrePriceSnapshot_fetchedAt_idx")
 }

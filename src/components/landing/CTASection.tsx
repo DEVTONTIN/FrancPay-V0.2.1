@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { TonConnectButton } from '@tonconnect/ui-react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
 interface CTASectionProps {
@@ -26,11 +25,11 @@ export const CTASection: React.FC<CTASectionProps> = ({ onGetStarted }) => {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-full mb-8">
             <Sparkles className="w-4 h-4 text-purple-400" />
-            <span className="text-purple-400 text-sm font-medium">Rejoignez la révolution</span>
+            <span className="text-purple-400 text-sm font-medium">Rejoignez la revolution</span>
           </div>
 
           <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            Prêt à rejoindre
+            Pret a rejoindre
             <br />
             <span className="bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 bg-clip-text text-transparent">
               l'avenir des paiements ?
@@ -38,18 +37,21 @@ export const CTASection: React.FC<CTASectionProps> = ({ onGetStarted }) => {
           </h2>
 
           <p className="text-xl text-slate-300 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Connectez votre wallet TON et découvrez une nouvelle façon de gérer vos finances avec le Franc Numérique. Simple, sécurisé, instantané.
+            Rejoignez FrancPay et decouvrez une nouvelle facon de gerer vos finances avec le Franc Numerique.
+            Simple, securise, instantane.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onGetStarted}
-            >
-              <TonConnectButton className="ton-connect-button-large" />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="lg"
+                className="ton-connect-button-large"
+                onClick={onGetStarted}
+              >
+                Creer un compte
+              </Button>
             </motion.div>
-            
+
             <Button
               variant="outline"
               size="lg"
@@ -72,7 +74,7 @@ export const CTASection: React.FC<CTASectionProps> = ({ onGetStarted }) => {
               </div>
               <div className="text-slate-400">Utilisateurs actifs</div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -82,9 +84,9 @@ export const CTASection: React.FC<CTASectionProps> = ({ onGetStarted }) => {
               <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
                 10M+ FRE
               </div>
-              <div className="text-slate-400">Volume traité</div>
+              <div className="text-slate-400">Volume traite</div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
