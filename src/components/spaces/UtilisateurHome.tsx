@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabaseClient';
 
@@ -37,6 +38,8 @@ import { UtilisateurProfilePage } from '@/components/spaces/utilisateur/Utilisat
 import { TransferPinSetupDialog } from '@/components/spaces/utilisateur/TransferPinSetupDialog';
 
 import { TransferPinPromptDialog } from '@/components/spaces/utilisateur/TransferPinPromptDialog';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import {
 
@@ -107,6 +110,12 @@ const formatSupabaseError = (error: unknown) => {
 
 
 type PinActionResult = { success: boolean; message?: string };
+
+type TransferResultDialogState = {
+  type: 'success' | 'error';
+  title: string;
+  description: string;
+};
 
 
 
@@ -213,6 +222,8 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
   const [contactFeedback, setContactFeedback] = useState<string | null>(null);
 
   const [contactForm, setContactForm] = useState({ handle: '', amount: '', note: '' });
+
+  const [transferResultDialog, setTransferResultDialog] = useState<TransferResultDialogState | null>(null);
 
   const [pinSetupRequired, setPinSetupRequired] = useState(false);
 
@@ -508,9 +519,15 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
 
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (options?: { silent?: boolean }) => {
 
-    setIsProfileLoading(true);
+    const silentRefresh = Boolean(options?.silent);
+
+    if (!silentRefresh) {
+
+      setIsProfileLoading(true);
+
+    }
 
     const {
 
@@ -560,7 +577,11 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
       setPinSessionPending(false);
 
-      setIsProfileLoading(false);
+      if (!silentRefresh) {
+
+        setIsProfileLoading(false);
+
+      }
 
       return;
 
@@ -856,7 +877,11 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
     }
 
-    setIsProfileLoading(false);
+    if (!silentRefresh) {
+
+      setIsProfileLoading(false);
+
+    }
 
   }, [defaultProfileDetails, ensureProfileRecord, updateRecentTransactions]);
 
@@ -867,6 +892,56 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     refreshProfile();
 
   }, [refreshProfile]);
+
+  useEffect(() => {
+
+    if (!authUserId) return;
+
+    let refreshTimeout: number | null = null;
+
+    const triggerSilentRefresh = () => {
+
+      if (refreshTimeout) return;
+
+      refreshTimeout = window.setTimeout(() => {
+
+        refreshTimeout = null;
+
+        refreshProfile({ silent: true });
+
+      }, 300);
+
+    };
+
+    const channel = supabase
+
+      .channel(`user-transfer-refresh-${authUserId}`)
+
+      .on(
+
+        'postgres_changes',
+
+        { event: 'INSERT', schema: 'public', table: 'UserPaymentTransaction', filter: `authUserId=eq.${authUserId}` },
+
+        triggerSilentRefresh
+
+      )
+
+      .subscribe();
+
+    return () => {
+
+      if (refreshTimeout) {
+
+        window.clearTimeout(refreshTimeout);
+
+      }
+
+      supabase.removeChannel(channel);
+
+    };
+
+  }, [authUserId, refreshProfile]);
 
 
 
@@ -1114,6 +1189,18 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
 
 
+  const closeSendExperience = useCallback(() => {
+
+    onSendClose();
+
+    handleContactClose();
+
+    handleWalletClose();
+
+  }, [onSendClose, handleContactClose, handleWalletClose]);
+
+
+
   const handlePinSetupSubmit = useCallback(
 
     async (pinValue: string) => {
@@ -1202,6 +1289,8 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
       const amountValue = Number(walletForm.amount) || 0;
 
+      const targetAddress = walletForm.address.trim();
+
       const sanitizedPin = pin.replace(/\D/g, '');
 
       if (!walletForm.address || amountValue <= 0) {
@@ -1236,7 +1325,7 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         const { error } = await supabase.rpc('rpc_user_wallet_payment', {
 
-          p_wallet_address: walletForm.address.trim(),
+          p_wallet_address: targetAddress,
 
           p_amount_fre: amountValue,
 
@@ -1260,6 +1349,20 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         await refreshProfile();
 
+        const amountLabel = amountValue.toFixed(2);
+
+        setTransferResultDialog({
+
+          type: 'success',
+
+          title: 'Transfert envoye',
+
+          description: `${amountLabel} FRE envoyes vers ${targetAddress}.`,
+
+        });
+
+        closeSendExperience();
+
         return { success: true };
 
       } catch (rpcError) {
@@ -1272,13 +1375,25 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         setWalletMessage(formatted);
 
+        setTransferResultDialog({
+
+          type: 'error',
+
+          title: 'Transfert echoue',
+
+          description: formatted,
+
+        });
+
+        closeSendExperience();
+
         return { success: false, message: formatted };
 
       }
 
     },
 
-    [walletForm.address, walletForm.amount, walletForm.note, refreshProfile]
+    [walletForm.address, walletForm.amount, walletForm.note, refreshProfile, closeSendExperience]
 
   );
 
@@ -1299,6 +1414,8 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     async (pin: string): Promise<PinActionResult> => {
 
       const amountValue = Number(contactForm.amount) || 0;
+
+      const recipientHandle = contactForm.handle;
 
       const sanitizedPin = pin.replace(/\D/g, '');
 
@@ -1330,7 +1447,7 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         const { error } = await supabase.rpc('rpc_transfer_between_users', {
 
-          p_handle: contactForm.handle,
+          p_handle: recipientHandle,
 
           p_amount: amountValue,
 
@@ -1348,6 +1465,20 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         await refreshProfile();
 
+        const amountLabel = amountValue.toFixed(2);
+
+        setTransferResultDialog({
+
+          type: 'success',
+
+          title: 'Transfert effectue',
+
+          description: `${amountLabel} FRE envoyes a ${recipientHandle}.`,
+
+        });
+
+        closeSendExperience();
+
         return { success: true };
 
       } catch (error) {
@@ -1360,13 +1491,25 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         setContactFeedback(formatted);
 
+        setTransferResultDialog({
+
+          type: 'error',
+
+          title: 'Transfert echoue',
+
+          description: formatted,
+
+        });
+
+        closeSendExperience();
+
         return { success: false, message: formatted };
 
       }
 
     },
 
-    [contactForm.handle, contactForm.amount, contactForm.note, refreshProfile]
+    [contactForm.handle, contactForm.amount, contactForm.note, refreshProfile, closeSendExperience]
 
   );
 
@@ -1890,13 +2033,9 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
   const handleSendPageClose = useCallback(() => {
 
-    onSendClose();
+    closeSendExperience();
 
-    handleContactClose();
-
-    handleWalletClose();
-
-  }, [onSendClose, handleContactClose, handleWalletClose]);
+  }, [closeSendExperience]);
 
 
 
@@ -1904,15 +2043,11 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
     if (transfersLocked && sendVisible) {
 
-      onSendClose();
-
-      handleContactClose();
-
-      handleWalletClose();
+      closeSendExperience();
 
     }
 
-  }, [transfersLocked, sendVisible, onSendClose, handleContactClose, handleWalletClose]);
+  }, [transfersLocked, sendVisible, closeSendExperience]);
 
 
 
@@ -2356,6 +2491,86 @@ const closeTransactionDetail = useCallback(() => {
 
 
 
+      <Dialog
+
+        open={Boolean(transferResultDialog)}
+
+        onOpenChange={(open) => {
+
+          if (!open) setTransferResultDialog(null);
+
+        }}
+
+      >
+
+        <DialogContent className="bg-slate-950 border border-slate-800 text-white sm:max-w-md">
+
+          {transferResultDialog && (
+
+            <>
+
+              <DialogHeader className="items-center text-center space-y-3">
+
+                <div
+
+                  className={`rounded-full p-3 ${
+
+                    transferResultDialog.type === 'success'
+
+                      ? 'bg-emerald-500/10 text-emerald-400'
+
+                      : 'bg-red-500/10 text-red-400'
+
+                  }`}
+
+                >
+
+                  {transferResultDialog.type === 'success' ? (
+
+                    <CheckCircle2 className="h-8 w-8" />
+
+                  ) : (
+
+                    <AlertTriangle className="h-8 w-8" />
+
+                  )}
+
+                </div>
+
+                <DialogTitle className="text-2xl font-semibold">{transferResultDialog.title}</DialogTitle>
+
+                <DialogDescription className="text-slate-400">
+
+                  {transferResultDialog.description}
+
+                </DialogDescription>
+
+              </DialogHeader>
+
+              <div className="pt-2">
+
+                <Button
+
+                  className="w-full rounded-2xl bg-emerald-500 text-white hover:bg-emerald-400"
+
+                  onClick={() => setTransferResultDialog(null)}
+
+                >
+
+                  Retour a l'accueil
+
+                </Button>
+
+              </div>
+
+            </>
+
+          )}
+
+        </DialogContent>
+
+      </Dialog>
+
       <SendFundsPage
 
         visible={sendVisible}
@@ -2469,3 +2684,4 @@ const closeTransactionDetail = useCallback(() => {
   );
 
 };
+
