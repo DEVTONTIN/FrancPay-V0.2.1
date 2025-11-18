@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Drawer, DrawerClose, DrawerContent } from '@/components/ui/drawer';
 
 interface SendFundsPageProps {
   visible: boolean;
@@ -125,16 +126,10 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-slate-950/70 backdrop-blur-sm text-white">
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="relative h-[70vh] w-full rounded-t-3xl border-t border-slate-800 bg-slate-950/95 shadow-2xl"
-      >
+    <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
+      <DrawerContent className="mx-auto h-[85vh] w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-950 text-white">
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-900/80 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-slate-900 px-4 py-4">
             {view === 'options' ? (
               <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Envoyer</span>
             ) : (
@@ -149,17 +144,19 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
               </Button>
             )}
             <p className="text-sm font-semibold text-white">{headerTitle}</p>
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </DrawerClose>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-6">
+          <div className="flex-1 overflow-y-auto px-4 py-6">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={view}
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
                 className="h-full"
               >
@@ -168,8 +165,8 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
             </AnimatePresence>
           </div>
         </div>
-      </motion.div>
-    </div>
+      </DrawerContent>
+    </Drawer>
   );
 };
 
@@ -280,14 +277,14 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
           <p className="text-sm text-slate-400">Selectionne le contact et confirme le montant du transfert.</p>
         </div>
           <div className="space-y-2">
-            <Label className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Identifiant FrancPay</Label>
-            <Input
-              value={form.handle}
-              onChange={(e) => onChange({ ...form, handle: e.target.value })}
-              placeholder="@prenom.nom"
-              className="bg-slate-900 border-slate-800 text-white"
-            />
-          </div>
+          <Label className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Identifiant FrancPay</Label>
+          <Input
+            value={form.handle}
+            onChange={(e) => onChange({ ...form, handle: e.target.value.toLowerCase() })}
+            placeholder="@prenom.nom"
+            className="bg-slate-900 border-slate-800 text-white"
+          />
+        </div>
           <div className="space-y-2">
             <Label className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Montant (FRE)</Label>
             <Input
@@ -415,7 +412,7 @@ const SendTonForm: React.FC<SendTonPanelProps> = ({ form, status, statusMessage,
           <Input
             value={form.address}
             onChange={(e) => onChange({ ...form, address: e.target.value })}
-            placeholder="ton://wallet"
+            placeholder="UQ..."
             className="bg-slate-900 border-slate-800 text-white"
           />
         </div>

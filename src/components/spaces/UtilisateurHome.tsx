@@ -81,11 +81,11 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
   const [walletStatus, setWalletStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [walletMessage, setWalletMessage] = useState<string | null>(null);
-  const [walletForm, setWalletForm] = useState({ address: '', amount: '0', note: '' });
+  const [walletForm, setWalletForm] = useState({ address: '', amount: '', note: '' });
 
   const [contactStatus, setContactStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [contactFeedback, setContactFeedback] = useState<string | null>(null);
-  const [contactForm, setContactForm] = useState({ handle: '', amount: '0', note: '' });
+  const [contactForm, setContactForm] = useState({ handle: '', amount: '', note: '' });
   const [transactions, setTransactions] = useState<TransactionDisplay[]>([]);
   const [, setRawTransactions] = useState<SupabaseTransactionRow[]>([]);
   const [aggregatedTransactionRows, setAggregatedTransactionRows] = useState<SupabaseTransactionRow[]>([]);
@@ -444,13 +444,13 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
   const handleWalletClose = useCallback(() => {
     setWalletStatus('idle');
     setWalletMessage(null);
-    setWalletForm({ address: '', amount: '0', note: '' });
+    setWalletForm({ address: '', amount: '', note: '' });
   }, []);
 
   const handleContactClose = useCallback(() => {
     setContactStatus('idle');
     setContactFeedback(null);
-    setContactForm({ handle: '', amount: '0', note: '' });
+    setContactForm({ handle: '', amount: '', note: '' });
   }, []);
 
   const handleWalletConfirm = useCallback(async () => {
