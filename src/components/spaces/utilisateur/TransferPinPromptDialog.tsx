@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShieldCheck, ScanFace, Delete, Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -61,25 +61,62 @@ export const TransferPinPromptDialog: React.FC<TransferPinPromptDialogProps> = (
     }
   }, [pinDigits, pending, onSubmit]);
 
-  const handleDigit = (digit: string) => {
-    if (pending || pinDigits.length >= 4) return;
-    setPinDigits((prev) => [...prev, digit]);
-  };
+  useEffect(() => {
+    if (!pending && error) {
+      setPinDigits([]);
+    }
+  }, [pending, error]);
 
-  const handleBackspace = () => {
+  const handleDigit = useCallback(
+    (digit: string) => {
+      if (pending) return;
+      setPinDigits((prev) => {
+        if (prev.length >= 4) return prev;
+        return [...prev, digit];
+      });
+    },
+    [pending]
+  );
+
+  const handleBackspace = useCallback(() => {
     if (pending) return;
     setPinDigits((prev) => prev.slice(0, -1));
-  };
+  }, [pending]);
 
   const maskedEmail = useMemo(() => maskEmail(email), [email]);
   const resolvedTitle = title || "Entrez le code d'acces";
   const resolvedDescription = description || `Saisis le code d'acces pour ${maskedEmail}.`;
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (pending || !onCancel) return;
     setPinDigits([]);
     onCancel();
-  };
+  }, [pending, onCancel]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (pending) return;
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        handleDigit(event.key);
+        return;
+      }
+      if (event.key === 'Backspace') {
+        event.preventDefault();
+        handleBackspace();
+        return;
+      }
+      if (event.key === 'Escape' && showCancel) {
+        event.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, pending, handleDigit, handleBackspace, showCancel, handleCancel]);
 
   const resolvedError = error;
   return (
@@ -103,9 +140,12 @@ export const TransferPinPromptDialog: React.FC<TransferPinPromptDialogProps> = (
             {[0, 1, 2, 3].map((index) => (
               <span
                 key={`pin-dot-${index}`}
-                className={`h-5 w-5 rounded-full border border-slate-700 bg-slate-900 ${
-                  pinDigits[index] ? 'bg-emerald-500/70 border-emerald-400' : ''
+                className={`h-5 w-5 rounded-full border-2 transition-all duration-150 ${
+                  pinDigits[index]
+                    ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-125'
+                    : 'bg-transparent border-slate-700 opacity-60'
                 }`}
+                aria-label={`PIN dot ${index + 1}`}
               />
             ))}
           </div>
