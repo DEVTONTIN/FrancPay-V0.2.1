@@ -17,25 +17,39 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Drawer, DrawerClose, DrawerContent } from '@/components/ui/drawer';
+import { TransferPinPromptDialog } from '@/components/spaces/utilisateur/TransferPinPromptDialog';
+
+interface ContactFormShape {
+  handle: string;
+  amount: string;
+  note: string;
+}
+
+interface WalletFormShape {
+  address: string;
+  amount: string;
+  note: string;
+}
 
 interface SendFundsPageProps {
   visible: boolean;
   onClose: () => void;
-  contactForm: { handle: string; amount: string; note: string };
+  contactForm: ContactFormShape;
   contactStatus: 'idle' | 'pending' | 'success' | 'error';
   contactStatusMessage?: string | null;
-  onContactChange: (form: { handle: string; amount: string; note: string }) => void;
-  onContactConfirm: () => void;
+  onContactChange: (form: ContactFormShape) => void;
+  onContactConfirm: (pin: string) => Promise<{ success: boolean; message?: string }>;
   onContactError: () => void;
   onValidateRecipient?: (handle: string) => Promise<boolean>;
   onResetContact: () => void;
-  walletForm: { address: string; amount: string; note: string };
+  walletForm: WalletFormShape;
   walletStatus: 'idle' | 'pending' | 'success' | 'error';
   walletStatusMessage?: string | null;
-  onWalletChange: (form: { address: string; amount: string; note: string }) => void;
-  onWalletConfirm: () => void;
+  onWalletChange: (form: WalletFormShape) => void;
+  onWalletConfirm: (pin: string) => Promise<{ success: boolean; message?: string }>;
   onWalletError: () => void;
   onResetWallet: () => void;
+  profileEmail?: string;
 }
 
 const sendOptions = [
@@ -71,12 +85,23 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
   onWalletConfirm,
   onWalletError,
   onResetWallet,
+  profileEmail,
 }) => {
   const [view, setView] = useState<'options' | 'user' | 'ton'>('options');
+  const [pinPromptTarget, setPinPromptTarget] = useState<'contact' | 'wallet' | null>(null);
+  const [pinPromptPending, setPinPromptPending] = useState(false);
+  const [pinPromptError, setPinPromptError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setView('options');
+    }
+  }, [visible]);
+  useEffect(() => {
+    if (!visible) {
+      setPinPromptTarget(null);
+      setPinPromptError(null);
+      setPinPromptPending(false);
     }
   }, [visible]);
 
@@ -86,6 +111,9 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
     setView('options');
     onResetContact();
     onResetWallet();
+    setPinPromptTarget(null);
+    setPinPromptError(null);
+    setPinPromptPending(false);
     onClose();
   };
 
@@ -104,7 +132,10 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
           status={contactStatus}
           statusMessage={contactStatusMessage}
           onChange={onContactChange}
-          onConfirm={onContactConfirm}
+          onConfirm={() => {
+            setPinPromptTarget('contact');
+            setPinPromptError(null);
+          }}
           onError={onContactError}
           onValidateRecipient={onValidateRecipient}
         />
@@ -117,7 +148,10 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
           status={walletStatus}
           statusMessage={walletStatusMessage}
           onChange={onWalletChange}
-          onConfirm={onWalletConfirm}
+          onConfirm={() => {
+            setPinPromptTarget('wallet');
+            setPinPromptError(null);
+          }}
           onError={onWalletError}
         />
       );
@@ -125,62 +159,47 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
     return <SendOptionGrid onSelect={(target) => setView(target)} />;
   };
 
+  const handlePinSubmit = async (pin: string) => {
+    if (!pinPromptTarget) return;
+    setPinPromptPending(true);
+    setPinPromptError(null);
+    const result =
+      pinPromptTarget === 'contact' ? await onContactConfirm(pin) : await onWalletConfirm(pin);
+    setPinPromptPending(false);
+    if (result?.success) {
+      setPinPromptTarget(null);
+      setPinPromptError(null);
+    } else {
+      setPinPromptError(result?.message || 'Code securite incorrect.');
+    }
+  };
+
   if (view !== 'options') {
     return (
-      <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-white">
-        <div className="flex items-center justify-between border-b border-slate-900 px-5 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-slate-300 hover:text-white"
-            onClick={() => setView('options')}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Choix
-          </Button>
-          <p className="text-sm font-semibold text-white">{headerTitle}</p>
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={view}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="h-full"
+      <>
+        <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-white">
+          <div className="flex items-center justify-between border-b border-slate-900 px-5 py-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-300 hover:text-white"
+              onClick={() => setView('options')}
             >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
-      <DrawerContent className="mx-auto h-[85vh] w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-950 text-white">
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-900 px-4 py-4">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Envoyer</span>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Choix
+            </Button>
             <p className="text-sm font-semibold text-white">{headerTitle}</p>
-            <DrawerClose asChild>
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </DrawerClose>
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="flex-1 overflow-y-auto px-5 py-6">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={view}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                exit={{ opacity: 0, y: -16 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
                 className="h-full"
               >
@@ -189,8 +208,69 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
             </AnimatePresence>
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+        <TransferPinPromptDialog
+          open={Boolean(pinPromptTarget)}
+          pending={pinPromptPending}
+          error={pinPromptError}
+          email={profileEmail}
+          onSubmit={handlePinSubmit}
+          onCancel={() => {
+            if (pinPromptPending) return;
+            setPinPromptTarget(null);
+            setPinPromptError(null);
+          }}
+          showCancel
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
+        <DrawerContent className="mx-auto h-[85vh] w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-950 text-white">
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between border-b border-slate-900 px-4 py-4">
+              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Envoyer</span>
+              <p className="text-sm font-semibold text-white">{headerTitle}</p>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={view}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="h-full"
+                >
+                  {renderContent()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <TransferPinPromptDialog
+        open={Boolean(pinPromptTarget)}
+        pending={pinPromptPending}
+        error={pinPromptError}
+        email={profileEmail}
+        onSubmit={handlePinSubmit}
+        onCancel={() => {
+          if (pinPromptPending) return;
+          setPinPromptTarget(null);
+          setPinPromptError(null);
+        }}
+        showCancel
+      />
+    </>
   );
 };
 
@@ -231,10 +311,10 @@ const SendOptionGrid: React.FC<{ onSelect: (target: 'user' | 'ton') => void }> =
 };
 
 interface SendUserPanelProps {
-  form: { handle: string; amount: string; note: string };
+  form: ContactFormShape;
   status: 'idle' | 'pending' | 'success' | 'error';
   statusMessage?: string | null;
-  onChange: (form: { handle: string; amount: string; note: string }) => void;
+  onChange: (form: ContactFormShape) => void;
   onConfirm: () => void;
   onError: () => void;
   onValidateRecipient?: (handle: string) => Promise<boolean>;
@@ -318,15 +398,15 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
               className="bg-slate-900 border-slate-800 text-white"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Message</Label>
-            <Input
-              value={form.note}
-              onChange={(e) => onChange({ ...form, note: e.target.value })}
-              placeholder="Merci pour votre confiance"
-              className="bg-slate-900 border-slate-800 text-white"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Message</Label>
+          <Input
+            value={form.note}
+            onChange={(e) => onChange({ ...form, note: e.target.value })}
+            placeholder="Merci pour votre confiance"
+            className="bg-slate-900 border-slate-800 text-white"
+          />
+        </div>
         {status === 'pending' && (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-3 text-sm text-slate-200">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -407,10 +487,10 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
 };
 
 interface SendTonPanelProps {
-  form: { address: string; amount: string; note: string };
+  form: WalletFormShape;
   status: 'idle' | 'pending' | 'success' | 'error';
   statusMessage?: string | null;
-  onChange: (form: { address: string; amount: string; note: string }) => void;
+  onChange: (form: WalletFormShape) => void;
   onConfirm: () => void;
   onError: () => void;
 }

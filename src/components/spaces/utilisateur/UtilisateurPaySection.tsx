@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Store, Scan, CheckCircle2 } from 'lucide-react';
 import { TRANSFER_FEE_FRE, TRANSFER_FEE_LABEL } from '@/config/fees';
+import { TransferPinPromptDialog } from '@/components/spaces/utilisateur/TransferPinPromptDialog';
 
 interface MerchantPersistResult {
   success: boolean;
@@ -18,10 +19,12 @@ interface UtilisateurPaySectionProps {
     amount: string;
     tag?: string;
     name?: string;
+    pin: string;
   }) => Promise<MerchantPersistResult>;
+  profileEmail?: string;
 }
 
-export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ onPersistTransaction }) => {
+export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ onPersistTransaction, profileEmail }) => {
   const [merchantPage, setMerchantPage] = useState(false);
   const [merchantCodeInput, setMerchantCodeInput] = useState('');
   const [merchantAmount, setMerchantAmount] = useState('');
@@ -33,6 +36,9 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
   const [merchantDrawerStatus, setMerchantDrawerStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [merchantDrawerMessage, setMerchantDrawerMessage] = useState<string | null>(null);
   const [merchantCodeError, setMerchantCodeError] = useState('');
+  const [pinPromptOpen, setPinPromptOpen] = useState(false);
+  const [pinPromptPending, setPinPromptPending] = useState(false);
+  const [pinPromptError, setPinPromptError] = useState<string | null>(null);
 
   const openMerchantFlow = () => {
     setMerchantPage(true);
@@ -43,6 +49,9 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
     setMerchantDrawerStatus('idle');
     setMerchantDrawerMessage(null);
     setMerchantCodeError('');
+    setPinPromptOpen(false);
+    setPinPromptPending(false);
+    setPinPromptError(null);
   };
 
   const openMerchantDrawer = (context: { name: string; reference: string; amount: string; tag?: string }) => {
@@ -50,6 +59,7 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
     setMerchantDrawerStatus('idle');
     setMerchantDrawerMessage(null);
     setMerchantDrawerOpen(true);
+    setPinPromptError(null);
   };
 
   const handleMerchantScan = () => {
@@ -75,8 +85,14 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
     });
   };
 
-  const handleMerchantSuccess = async () => {
+  const handleMerchantSuccess = () => {
     if (!merchantDetails) return;
+    setPinPromptError(null);
+    setPinPromptOpen(true);
+  };
+
+  const submitMerchantPayment = async (pin: string) => {
+    if (!merchantDetails) return { success: false, message: 'Aucune reference selectionnee.' };
     try {
       setMerchantDrawerStatus('pending');
       setMerchantDrawerMessage(null);
@@ -85,6 +101,7 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
         amount: merchantDetails.amount,
         tag: merchantDetails.tag,
         name: merchantDetails.name,
+        pin,
       });
       if (result.success) {
         setMerchantDrawerStatus('success');
@@ -93,10 +110,12 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
         setMerchantDrawerStatus('error');
         setMerchantDrawerMessage(result.message || 'Le paiement commercant a echoue.');
       }
+      return result;
     } catch (error) {
       console.error('merchant_drawer_confirm_error', error);
       setMerchantDrawerStatus('error');
       setMerchantDrawerMessage('Impossible de confirmer ce paiement.');
+      return { success: false, message: 'Impossible de confirmer ce paiement.' };
     }
   };
 
@@ -110,6 +129,29 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
     setMerchantDrawerStatus('idle');
     setMerchantDrawerMessage(null);
     setMerchantCodeError('');
+    setPinPromptOpen(false);
+    setPinPromptPending(false);
+    setPinPromptError(null);
+  };
+
+  React.useEffect(() => {
+    if (!merchantDrawerOpen) {
+      setPinPromptOpen(false);
+      setPinPromptPending(false);
+      setPinPromptError(null);
+    }
+  }, [merchantDrawerOpen]);
+
+  const handlePinSubmit = async (pin: string) => {
+    setPinPromptPending(true);
+    setPinPromptError(null);
+    const result = await submitMerchantPayment(pin);
+    setPinPromptPending(false);
+    if (result?.success) {
+      setPinPromptOpen(false);
+    } else {
+      setPinPromptError(result?.message || 'Code securite incorrect.');
+    }
   };
 
   return (
@@ -269,6 +311,20 @@ export const UtilisateurPaySection: React.FC<UtilisateurPaySectionProps> = ({ on
           <DrawerClose className="absolute top-4 right-4 text-slate-500 hover:text-white">Fermer</DrawerClose>
         </DrawerContent>
       </Drawer>
+
+      <TransferPinPromptDialog
+        open={pinPromptOpen}
+        pending={pinPromptPending}
+        error={pinPromptError}
+        email={profileEmail}
+        onSubmit={handlePinSubmit}
+        onCancel={() => {
+          if (pinPromptPending) return;
+          setPinPromptOpen(false);
+          setPinPromptError(null);
+        }}
+        showCancel
+      />
     </>
   );
 };

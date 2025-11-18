@@ -27,14 +27,16 @@ interface TransactionDetailDrawerProps {
   onReload?: () => void;
 }
 
-const formatMetadataValue = (value: unknown) => {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return '—';
-  }
+const isPrimitive = (value: unknown): value is string | number | boolean =>
+  ['string', 'number', 'boolean'].includes(typeof value);
+
+const formatMetadataLabel = (label: string) => {
+  return label
+    .replace(/([a-z])([A-Z0-9])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase());
 };
 
 export const TransactionDetailDrawer: React.FC<TransactionDetailDrawerProps> = ({
@@ -51,7 +53,7 @@ export const TransactionDetailDrawer: React.FC<TransactionDetailDrawerProps> = (
     if (!transaction?.metadata) return [];
     return Object.entries(transaction.metadata).map(([key, value]) => ({
       key,
-      value: formatMetadataValue(value),
+      value,
     }));
   }, [transaction]);
 
@@ -154,22 +156,33 @@ export const TransactionDetailDrawer: React.FC<TransactionDetailDrawerProps> = (
           </div>
         </div>
 
-        <div className="space-y-2 rounded-3xl border border-slate-800 bg-slate-900/50 p-4">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Wallet className="h-4 w-4" />
-            Détails additionnels
+        <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Détails additionnels
+            </div>
           </div>
           {metadataEntries.length === 0 ? (
             <p className="text-[13px] text-slate-400">Aucune donnée complémentaire.</p>
           ) : (
-            <dl className="space-y-2 text-[13px]">
-              {metadataEntries.map((entry) => (
-                <div key={entry.key} className="flex justify-between gap-4">
-                  <dt className="text-slate-500">{entry.key}</dt>
-                  <dd className="text-right text-white">{entry.value}</dd>
-                </div>
-              ))}
-            </dl>
+            <>
+              <dl className="space-y-3 text-[13px]">
+                {metadataEntries.map((entry) => (
+                  <div
+                    key={entry.key}
+                    className="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-3"
+                  >
+                    <dt className="text-[11px] uppercase tracking-[0.35em] text-slate-500">
+                      {formatMetadataLabel(entry.key)}
+                    </dt>
+                    <dd className="mt-2 text-slate-200">
+                      {renderMetadataValue(entry.value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </>
           )}
         </div>
       </div>
@@ -191,3 +204,32 @@ export const TransactionDetailDrawer: React.FC<TransactionDetailDrawerProps> = (
     </Drawer>
   );
 };
+
+function renderMetadataValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined) {
+    return <span className="text-slate-500">Non renseigné</span>;
+  }
+  if (isPrimitive(value)) {
+    if (typeof value === 'boolean') {
+      return <span>{value ? 'Oui' : 'Non'}</span>;
+    }
+    return <span>{String(value)}</span>;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-slate-500">Vide</span>;
+    if (value.every((item) => isPrimitive(item))) {
+      return (
+        <ul className="list-disc space-y-1 pl-4 text-slate-200">
+          {value.map((item, idx) => (
+            <li key={`${item}-${idx}`}>{String(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+    return <span>{value.length} entrée(s)</span>;
+  }
+  if (typeof value === 'object') {
+    return <span>{Object.keys(value as Record<string, unknown>).length} champ(s)</span>;
+  }
+  return <span>-</span>;
+}
