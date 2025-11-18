@@ -125,24 +125,48 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
     return <SendOptionGrid onSelect={(target) => setView(target)} />;
   };
 
+  if (view !== 'options') {
+    return (
+      <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-white">
+        <div className="flex items-center justify-between border-b border-slate-900 px-5 py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-slate-300 hover:text-white"
+            onClick={() => setView('options')}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Choix
+          </Button>
+          <p className="text-sm font-semibold text-white">{headerTitle}</p>
+          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="h-full"
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
       <DrawerContent className="mx-auto h-[85vh] w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-950 text-white">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-slate-900 px-4 py-4">
-            {view === 'options' ? (
-              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Envoyer</span>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-300 hover:text-white"
-                onClick={() => setView('options')}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Choix
-              </Button>
-            )}
+            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Envoyer</span>
             <p className="text-sm font-semibold text-white">{headerTitle}</p>
             <DrawerClose asChild>
               <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={handleClose}>
