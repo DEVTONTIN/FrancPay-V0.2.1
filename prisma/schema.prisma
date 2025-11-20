@@ -31,13 +31,28 @@ enum StakeLedgerType {
 }
 
 model UserProfile {
-  id           String      @id @default(uuid())
-  authUserId   String      @unique
-  username     String      @unique
-  email        String      @unique
-  profileType  ProfileType
-  referralCode String?
-  createdAt    DateTime    @default(now())
+  id                String      @id @default(uuid())
+  authUserId        String      @unique
+  username          String      @unique
+  email             String      @unique
+  profileType       ProfileType
+  referralCode      String?
+  referredByCode    String?
+  firstName         String?
+  lastName          String?
+  birthDate         DateTime?
+  phoneNumber       String?
+  addressLine1      String?
+  addressLine2      String?
+  postalCode        String?
+  city              String?
+  country           String?
+  transferPinHash   String?
+  transferPinSetAt  DateTime?
+  pinFailedAttempts Int         @default(0)
+  pinLockedUntil    DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @default(now())
 
   walletBalance        UserWalletBalance?
   transactions         UserPaymentTransaction[]
@@ -49,6 +64,8 @@ model UserProfile {
 
   @@index([profileType])
   @@index([email])
+  @@index([city])
+  @@index([postalCode])
 }
 
 model ProfessionalApplication {

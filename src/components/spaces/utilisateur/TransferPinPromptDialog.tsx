@@ -85,7 +85,10 @@ export const TransferPinPromptDialog: React.FC<TransferPinPromptDialogProps> = (
 
   const maskedEmail = useMemo(() => maskEmail(email), [email]);
   const resolvedTitle = title || "Entrez le code d'acces";
-  const resolvedDescription = description || `Saisis le code d'acces pour ${maskedEmail}.`;
+  const resolvedDescription =
+    error === 'pin_locked'
+      ? 'Code verrouille apres trop de tentatives. Reessaie dans quelques minutes.'
+      : description || `Saisis le code d'acces pour ${maskedEmail}.`;
 
   const handleCancel = useCallback(() => {
     if (pending || !onCancel) return;
@@ -142,7 +145,7 @@ export const TransferPinPromptDialog: React.FC<TransferPinPromptDialogProps> = (
                 key={`pin-dot-${index}`}
                 className={`h-5 w-5 rounded-full border-2 transition-all duration-150 ${
                   pinDigits[index]
-                    ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-125'
+                    ? 'bg-emerald-400 border-emerald-300'
                     : 'bg-transparent border-slate-700 opacity-60'
                 }`}
                 aria-label={`PIN dot ${index + 1}`}

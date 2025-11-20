@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 
-type PortalSpace = 'professional' | 'utilisateur';
+type PortalSpace = 'utilisateur';
 type CallbackStatus = 'loading' | 'success' | 'error';
 
 export const AuthCallback = () => {
@@ -20,12 +20,11 @@ export const AuthCallback = () => {
   const [message, setMessage] = useState(
     'Validation de votre session sécurisée FrancPay...'
   );
-  const [space, setSpace] = useState<PortalSpace>('professional');
+  const [space, setSpace] = useState<PortalSpace>('utilisateur');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requestedSpace =
-      params.get('space') === 'utilisateur' ? 'utilisateur' : 'professional';
+    const requestedSpace: PortalSpace = 'utilisateur';
     setSpace(requestedSpace);
 
     const finishCallback = async () => {
@@ -46,14 +45,11 @@ export const AuthCallback = () => {
           if (error) throw error;
         }
 
-        localStorage.setItem(
-          'francpay_last_space',
-          requestedSpace === 'professional' ? 'professional' : 'utilisateur'
-        );
+        localStorage.setItem('francpay_last_space', 'utilisateur');
         setStatus('success');
         setMessage('Connexion confirmée. Redirection en cours...');
         setTimeout(() => {
-          window.location.replace(`/?space=${requestedSpace}`);
+          window.location.replace(`/?space=utilisateur`);
         }, 1400);
       } catch (error) {
         setStatus('error');
@@ -69,9 +65,7 @@ export const AuthCallback = () => {
   }, []);
 
   const handleBackHome = () => {
-    window.location.replace(
-      `/?space=${space === 'professional' ? 'professional' : 'utilisateur'}`
-    );
+    window.location.replace('/?space=utilisateur');
   };
 
   return (
@@ -79,7 +73,7 @@ export const AuthCallback = () => {
       <Card className="max-w-lg w-full bg-slate-900/70 border-slate-800 text-white">
         <CardHeader className="text-center space-y-4">
           <CardTitle className="text-2xl font-semibold">
-            Portail {space === 'professional' ? 'Professionnel' : 'Utilisateur'}
+            Portail Utilisateur
           </CardTitle>
           <CardDescription className="text-slate-300">
             Nous sécurisons votre session via Supabase Auth et vos préférences

@@ -9,9 +9,9 @@ import { Loader2, Chrome, ArrowLeft } from 'lucide-react';
 import { AuthApiError } from '@supabase/supabase-js';
 
 type SignupPageProps = {
-  profileType: 'utilisateur' | 'professional';
+  profileType: 'utilisateur';
   onClose: () => void;
-  onSuccess: (profileType: 'utilisateur' | 'professional') => void;
+  onSuccess: () => void;
 };
 
 const defaultForm = {
@@ -58,9 +58,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
     }
     try {
       setLoading(true);
-      const redirectTo = `${window.location.origin}/auth/callback?space=${
-        profileType === 'utilisateur' ? 'utilisateur' : 'professional'
-      }`;
+      const redirectTo = `${window.location.origin}/auth/callback?space=utilisateur`;
 
       const { error } = await supabase.auth.signUp({
         email: form.email,
@@ -83,7 +81,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
           'Un email de confirmation t a ete envoye. Valide-le avant de te connecter.',
         duration: 8000,
       });
-      onSuccess(profileType);
+      onSuccess();
     } catch (error) {
       let description =
         error instanceof Error ? error.message : 'Ressaie dans un instant.';
@@ -108,9 +106,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?space=${
-            profileType === 'utilisateur' ? 'utilisateur' : 'professional'
-          }`,
+          redirectTo: `${window.location.origin}/auth/callback?space=utilisateur`,
           queryParams: { prompt: 'select_account' },
           scopes: 'email profile',
         },
@@ -149,11 +145,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold">
-            {profileType === 'utilisateur'
-              ? 'Créer un compte Utilisateur'
-              : 'Créer un compte Professionnel'}
-          </h1>
+          <h1 className="text-2xl font-bold">Créer un compte Utilisateur</h1>
           <p className="text-sm text-slate-400">
             Rejoins FrancPay en quelques secondes. Toutes les données sont chiffrées et conformes aux standards TON.
           </p>

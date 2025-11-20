@@ -27,10 +27,6 @@ interface UtilisateurHeaderProps {
   onChangeCurrency?: (currency: BalanceDisplayCurrency) => void;
   currencyOptions?: CurrencyOption[];
   conversionHint?: string | null;
-  onOpenProApplication?: () => void;
-  onOpenProPortal?: () => void;
-  proApplicationStatus?: 'idle' | 'pending' | 'approved';
-  proAccessGranted?: boolean;
 }
 
 export const UtilisateurHeader: React.FC<UtilisateurHeaderProps> = ({
@@ -42,28 +38,7 @@ export const UtilisateurHeader: React.FC<UtilisateurHeaderProps> = ({
   onChangeCurrency,
   currencyOptions = [],
   conversionHint,
-  onOpenProApplication,
-  onOpenProPortal,
-  proApplicationStatus = 'idle',
-  proAccessGranted = false,
 }) => {
-  const proMenuLabel = proAccessGranted
-    ? 'Mon espace pro'
-    : proApplicationStatus === 'pending'
-    ? 'Demande en cours'
-    : 'Devenir professionnel';
-
-  const handleProMenuAction = () => {
-    if (proAccessGranted) {
-      onOpenProPortal?.();
-      return;
-    }
-    if (proApplicationStatus === 'pending') {
-      return;
-    }
-    onOpenProApplication?.();
-  };
-
   const renderCurrencyTrigger = () => {
     const triggerButton = (
       <button
@@ -127,20 +102,6 @@ export const UtilisateurHeader: React.FC<UtilisateurHeaderProps> = ({
             sideOffset={8}
             className="bg-slate-950 text-white border-slate-800 min-w-[200px]"
           >
-            <DropdownMenuItem
-              className="focus:bg-slate-900 cursor-pointer data-[disabled]:opacity-60"
-              disabled={proApplicationStatus === 'pending' && !proAccessGranted}
-              onSelect={(event) => {
-                event.preventDefault();
-                handleProMenuAction();
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                handleProMenuAction();
-              }}
-            >
-              {proMenuLabel}
-            </DropdownMenuItem>
             <DropdownMenuItem
               className="focus:bg-slate-900 cursor-pointer"
               onSelect={(event) => {

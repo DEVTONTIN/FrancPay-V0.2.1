@@ -17,7 +17,7 @@ import { AuthApiError } from '@supabase/supabase-js';
 type LoginDrawerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: (profileType: 'utilisateur' | 'professional') => void;
+  onSuccess: () => void;
 };
 
 export const LoginDrawer: React.FC<LoginDrawerProps> = ({
@@ -41,24 +41,6 @@ export const LoginDrawer: React.FC<LoginDrawerProps> = ({
     reset();
   };
 
-  const fetchProfileType = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return 'utilisateur';
-
-    const { data } = await supabase
-      .from('UserProfile')
-      .select('profileType')
-      .eq('authUserId', user.id)
-      .maybeSingle();
-
-    if (data?.profileType === 'PROFESSIONAL') {
-      return 'professional' as const;
-    }
-    return 'utilisateur' as const;
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!email || !password) {
@@ -78,10 +60,9 @@ export const LoginDrawer: React.FC<LoginDrawerProps> = ({
       });
       if (error) throw error;
 
-      const profileType = await fetchProfileType();
       toast({ title: 'Connexion réussie' });
       closeDrawer();
-      onSuccess(profileType);
+      onSuccess();
     } catch (error) {
       let description =
         error instanceof Error ? error.message : 'Réessaie dans un instant.';

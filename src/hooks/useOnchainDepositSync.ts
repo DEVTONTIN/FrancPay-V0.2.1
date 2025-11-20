@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { fetchTonTransactions, TON_WATCH_ADDRESS } from '@/lib/ton/onchainWatcher';
 import { supabase } from '@/lib/supabaseClient';
 
+const CLIENT_ONCHAIN_SYNC_ENABLED =
+  import.meta.env.VITE_ENABLE_CLIENT_ONCHAIN_SYNC === 'true';
+
 interface UseOnchainDepositSyncOptions {
   enabled?: boolean;
   onDeposit?: () => void;
@@ -14,7 +17,7 @@ export const useOnchainDepositSync = ({
   const processedRef = useRef<Set<string>>(new Set());
 
   const checkTransactions = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !CLIENT_ONCHAIN_SYNC_ENABLED) return;
     try {
       const txs = await fetchTonTransactions();
       for (const tx of txs) {
@@ -52,6 +55,10 @@ export const useOnchainDepositSync = ({
 
   useEffect(() => {
     if (!enabled) return;
+    if (!CLIENT_ONCHAIN_SYNC_ENABLED) {
+      console.warn('Client on-chain deposit sync is disabled; run the watcher server-side with a service role key.');
+      return;
+    }
     processedRef.current = new Set();
     checkTransactions();
     const interval = window.setInterval(() => {

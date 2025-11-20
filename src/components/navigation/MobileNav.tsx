@@ -1,3 +1,4 @@
+import React from 'react';
 import { Home, Send, History } from 'lucide-react';
 
 type MobileNavTab = 'home' | 'invest' | 'pay' | 'settings';
@@ -22,8 +23,8 @@ const items: Array<{
 
 export const MobileNav: React.FC<MobileNavProps> = ({ active, onChange, onHistory, historyActive }) => {
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur">
-      <div className="flex justify-around items-center px-3 py-2">
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur">
+      <div className="max-w-xl mx-auto flex justify-around items-center px-3 py-2">
         {items.map((item) => {
           const isHistory = item.id === 'settings';
           const isActive = isHistory ? historyActive : item.id === active;

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "onchain:watch": "node scripts/onchain-watcher.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

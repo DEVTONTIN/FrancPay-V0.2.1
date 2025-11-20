@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ArrowRight, X } from 'lucide-react';
 
-type ProfileChoice = 'utilisateur' | 'professional';
+type ProfileChoice = 'utilisateur';
 
 interface SignupDrawerProps {
   open: boolean;
@@ -32,14 +32,13 @@ export const SignupDrawer: React.FC<SignupDrawerProps> = ({
       <DrawerContent className="h-[75vh] bg-slate-950 text-white border-slate-800">
         <DrawerHeader className="space-y-2">
           <div className="text-sm text-emerald-400 uppercase tracking-[0.3em]">
-            Choisissez votre espace
+            Espace utilisateur
           </div>
           <DrawerTitle className="text-2xl">
             Inscrivez-vous sur FrancPay
           </DrawerTitle>
           <DrawerDescription className="text-slate-400">
-            Deux expériences mobile-first adaptées à votre usage du Franc
-            Numérique.
+            Une expérience mobile-first pour gérer et utiliser vos FRE.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -55,17 +54,6 @@ export const SignupDrawer: React.FC<SignupDrawerProps> = ({
                 'Support prioritaire FrancPay',
               ],
               accent: 'from-emerald-500/80 to-cyan-500/80',
-            },
-            {
-              type: 'professional' as ProfileChoice,
-              title: 'Compte Professionnel',
-              tag: 'Business',
-              highlights: [
-                'Encaissements & remboursements',
-                'Gestion d’équipe et webhooks',
-                'Historique comptable détaillé',
-              ],
-              accent: 'from-blue-500/80 to-indigo-500/80',
             },
           ] as const).map((option) => (
             <button

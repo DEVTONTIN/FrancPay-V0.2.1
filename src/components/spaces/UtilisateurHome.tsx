@@ -19,10 +19,6 @@ import { ShareDrawer } from '@/components/spaces/utilisateur/ShareDrawer';
 
 import { DepositDrawer } from '@/components/spaces/utilisateur/DepositDrawer';
 
-import { ProfessionalApplicationDrawer } from '@/components/spaces/utilisateur/ProfessionalApplicationDrawer';
-
-import { ProfessionalAccessPortal } from '@/components/spaces/utilisateur/ProfessionalAccessPortal';
-
 import { useOnchainDepositSync } from '@/hooks/useOnchainDepositSync';
 
 import { UtilisateurInvestSection } from '@/components/spaces/utilisateur/UtilisateurInvestSection';
@@ -86,6 +82,8 @@ const twoDecimalFormatter = new Intl.NumberFormat('fr-FR', {
 
 
 const PIN_SESSION_TIMEOUT_MS = 5 * 60 * 1000;
+const PIN_SESSION_TOKEN_KEY = 'francpay_pin_session_token';
+const PIN_SESSION_TIME_KEY = 'francpay_pin_session_timestamp';
 
 
 
@@ -138,6 +136,30 @@ const interpretPinErrorMessage = (message?: string | null) => {
   if (message.includes('pin_required')) {
 
     return 'Entre ton code securite a 4 chiffres.';
+
+  }
+
+  if (message.includes('pin_locked')) {
+
+    return 'Code verrouille apres trop de tentatives. Reessaie dans quelques minutes.';
+
+  }
+
+  if (message.includes('email_not_confirmed')) {
+
+    return 'Valide ton email pour activer les transactions.';
+
+  }
+
+  if (message.includes('transfer_limit_exceeded')) {
+
+    return 'Montant au-dessus de la limite par transaction.';
+
+  }
+
+  if (message.includes('transfer_daily_limit_exceeded')) {
+
+    return 'Limite journaliere atteinte. Reessaie plus tard.';
 
   }
 
@@ -250,14 +272,6 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
   const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
 
   const [depositDrawerOpen, setDepositDrawerOpen] = useState(false);
-
-  const [proApplicationDrawerOpen, setProApplicationDrawerOpen] = useState(false);
-
-  const [proAccessPortalOpen, setProAccessPortalOpen] = useState(false);
-
-  const [proApplicationStatus, setProApplicationStatus] = useState<'idle' | 'pending' | 'approved'>('idle');
-
-  const [proAccessGranted, setProAccessGranted] = useState(false);
 
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
 
@@ -613,15 +627,13 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
 
 
-    const [
+  const [
 
       { data: profileData, error: profileError },
 
       { data: balanceData, error: balanceError },
 
       { data: txData, error: txError },
-
-      { data: professionalApplicationData, error: professionalApplicationError },
 
     ] = await Promise.all([
 
@@ -648,20 +660,6 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
         .order('createdAt', { ascending: false })
 
         .limit(RECENT_TRANSACTION_BUFFER_LIMIT),
-
-      supabase
-
-        .from('ProfessionalApplication')
-
-        .select('status')
-
-        .eq('authUserId', session.user.id)
-
-        .order('submittedAt', { ascending: false })
-
-        .limit(1)
-
-        .maybeSingle(),
 
     ]);
 
@@ -692,6 +690,28 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     if (hasTransferPinValue) {
 
       setPinSetupError(null);
+
+      const sessionToken = (session as { access_token?: string }).access_token || null;
+      const storedToken = localStorage.getItem(PIN_SESSION_TOKEN_KEY);
+      const storedTs = Number(localStorage.getItem(PIN_SESSION_TIME_KEY) || '0');
+      const sameSession = sessionToken && storedToken === sessionToken;
+      const withinWindow = storedTs > 0 && Date.now() - storedTs < PIN_SESSION_TIMEOUT_MS;
+
+      if (sameSession && withinWindow) {
+        setPinSessionVerifiedAt(storedTs);
+        setPinSessionPromptOpen(false);
+      } else {
+        setPinSessionVerifiedAt(null);
+        if (!sameSession && sessionToken) {
+          setPinSessionPromptOpen(true); // nouvelle connexion
+        } else {
+          setPinSessionPromptOpen(false); // simple reload sans session nouvelle
+        }
+        localStorage.removeItem(PIN_SESSION_TIME_KEY);
+        localStorage.removeItem(PIN_SESSION_TOKEN_KEY);
+      }
+
+      setPinSessionError(null);
 
     } else {
 
@@ -833,36 +853,6 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
 
 
-    if (professionalApplicationError) {
-
-      console.error('Erreur statut dossier pro', professionalApplicationError);
-
-    }
-
-    const applicationStatus = professionalApplicationData?.status;
-
-    if (applicationStatus === 'APPROVED') {
-
-      setProApplicationStatus('approved');
-
-      setProAccessGranted(true);
-
-    } else if (applicationStatus === 'PENDING') {
-
-      setProApplicationStatus('pending');
-
-      setProAccessGranted(false);
-
-    } else if (applicationStatus === 'REJECTED' || !applicationStatus) {
-
-      setProApplicationStatus('idle');
-
-      setProAccessGranted(false);
-
-    }
-
-
-
     setTransfersLocked(nextTransfersLocked);
 
     setTransferLockReason(nextTransferLockReason);
@@ -943,6 +933,35 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
   }, [authUserId, refreshProfile]);
 
+  useEffect(() => {
+    if (!authUserId) return;
+
+    const channel = supabase
+      .channel(`onchain-deposit-${authUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'OnchainDeposit',
+          filter: `authUserId=eq.${authUserId}`,
+        },
+        (payload) => {
+          const nextStatus =
+            (payload.new as { status?: string } | null)?.status ||
+            (payload.old as { status?: string } | null)?.status;
+          if (nextStatus && nextStatus.toUpperCase() === 'CREDITED') {
+            refreshProfile({ silent: true });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId, refreshProfile]);
+
 
 
   useEffect(() => {
@@ -993,6 +1012,10 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         setPinSessionError('Session verrouillee apres 5 minutes sans activite. Entre ton code pour continuer.');
 
+        localStorage.removeItem(PIN_SESSION_TIME_KEY);
+
+        localStorage.removeItem(PIN_SESSION_TOKEN_KEY);
+
       }
 
     }, 15000);
@@ -1009,70 +1032,9 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
       setPinSessionPromptOpen(false);
 
-      return;
-
     }
 
-    if (!pinSessionVerifiedAt && !pinSessionPending) {
-
-      setPinSessionPromptOpen(true);
-
-    }
-
-  }, [hasTransferPin, pinSetupRequired, pinSessionVerifiedAt, pinSessionPending]);
-
-
-
-  useEffect(() => {
-
-    if (typeof window === 'undefined') return;
-
-    const storedStatus = localStorage.getItem('francpay_pro_application_status');
-
-    if (storedStatus === 'pending' || storedStatus === 'approved') {
-
-      setProApplicationStatus(storedStatus);
-
-    }
-
-    const storedAccess = localStorage.getItem('francpay_pro_access_granted');
-
-    if (storedAccess === 'true') {
-
-      setProAccessGranted(true);
-
-    }
-
-  }, []);
-
-
-
-  useEffect(() => {
-
-    if (typeof window === 'undefined') return;
-
-    if (proApplicationStatus === 'idle') {
-
-      localStorage.removeItem('francpay_pro_application_status');
-
-      return;
-
-    }
-
-    localStorage.setItem('francpay_pro_application_status', proApplicationStatus);
-
-  }, [proApplicationStatus]);
-
-
-
-  useEffect(() => {
-
-    if (typeof window === 'undefined') return;
-
-    localStorage.setItem('francpay_pro_access_granted', proAccessGranted ? 'true' : 'false');
-
-  }, [proAccessGranted]);
-
+  }, [hasTransferPin, pinSetupRequired]);
 
 
 
@@ -1138,28 +1100,6 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
     },
 
     [refreshProfile]
-
-  );
-
-
-
-  const handleProfessionalApplicationSubmitted = useCallback(
-
-    (status: 'pending' | 'approved') => {
-
-      setProApplicationStatus(status);
-
-      if (status === 'approved') {
-
-        setProAccessGranted(true);
-
-        setProAccessPortalOpen(true);
-
-      }
-
-    },
-
-    []
 
   );
 
@@ -1963,6 +1903,16 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
         setPinSessionVerifiedAt(now);
 
+        localStorage.setItem(PIN_SESSION_TIME_KEY, String(now));
+
+        const sessionToken = (await supabase.auth.getSession()).data.session?.access_token;
+
+        if (sessionToken) {
+
+          localStorage.setItem(PIN_SESSION_TOKEN_KEY, sessionToken);
+
+        }
+
         lastActivityRef.current = now;
 
         setPinSessionPromptOpen(false);
@@ -2325,14 +2275,6 @@ const closeTransactionDetail = useCallback(() => {
 
             conversionHint={currencyHint}
 
-            onOpenProApplication={() => setProApplicationDrawerOpen(true)}
-
-            onOpenProPortal={() => setProAccessPortalOpen(true)}
-
-            proApplicationStatus={proApplicationStatus}
-
-            proAccessGranted={proAccessGranted}
-
           />
 
 
@@ -2434,8 +2376,6 @@ const closeTransactionDetail = useCallback(() => {
         onSelectTransaction={handleHistoryTransactionSelect}
 
       />
-
-
 
       <UtilisateurProfilePage
 
@@ -2644,38 +2584,6 @@ const closeTransactionDetail = useCallback(() => {
         depositTag={depositTag}
 
         onManualRefresh={handleManualDepositRefresh}
-
-      />
-
-      <ProfessionalApplicationDrawer
-
-        open={proApplicationDrawerOpen}
-
-        onClose={() => setProApplicationDrawerOpen(false)}
-
-        onSubmitted={handleProfessionalApplicationSubmitted}
-
-        authUserId={authUserId}
-
-        profileEmail={profileEmail}
-
-      />
-
-      <ProfessionalAccessPortal
-
-        open={proAccessPortalOpen}
-
-        onClose={() => setProAccessPortalOpen(false)}
-
-        onNavigate={(target) => {
-
-          const section = target === 'funds' ? 'dashboard' : 'encaissement';
-
-          const destination = `/?space=professional&section=${section}`;
-
-          window.location.href = destination;
-
-        }}
 
       />
 
