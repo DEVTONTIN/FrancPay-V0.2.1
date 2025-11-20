@@ -106,8 +106,16 @@ export const UtilisateurHeader: React.FC<UtilisateurHeaderProps> = ({
               className="focus:bg-slate-900 cursor-pointer"
               onSelect={(event) => {
                 event.preventDefault();
-                const target = `${window.location.origin}/#faq`;
-                window.open(target, '_blank', 'noopener,noreferrer');
+                window.location.assign('/kyc');
+              }}
+            >
+              KYC
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="focus:bg-slate-900 cursor-pointer"
+              onSelect={(event) => {
+                event.preventDefault();
+                window.location.assign('/faq');
               }}
             >
               FAQ

@@ -31,6 +31,11 @@ interface WalletFormShape {
   note: string;
 }
 
+interface TransferLimits {
+  perTransaction?: number;
+  dailyRemaining?: number;
+}
+
 interface SendFundsPageProps {
   visible: boolean;
   onClose: () => void;
@@ -50,6 +55,7 @@ interface SendFundsPageProps {
   onWalletError: () => void;
   onResetWallet: () => void;
   profileEmail?: string;
+  transferLimits?: TransferLimits;
 }
 
 const sendOptions = [
@@ -86,6 +92,7 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
   onWalletError,
   onResetWallet,
   profileEmail,
+  transferLimits,
 }) => {
   const [view, setView] = useState<'options' | 'user' | 'ton'>('options');
   const [pinPromptTarget, setPinPromptTarget] = useState<'contact' | 'wallet' | null>(null);
@@ -138,6 +145,7 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
           }}
           onError={onContactError}
           onValidateRecipient={onValidateRecipient}
+          transferLimits={transferLimits}
         />
       );
     }
@@ -153,6 +161,7 @@ export const SendFundsPage: React.FC<SendFundsPageProps> = ({
             setPinPromptError(null);
           }}
           onError={onWalletError}
+          transferLimits={transferLimits}
         />
       );
     }
@@ -318,6 +327,7 @@ interface SendUserPanelProps {
   onConfirm: () => void;
   onError: () => void;
   onValidateRecipient?: (handle: string) => Promise<boolean>;
+  transferLimits?: TransferLimits;
 }
 
 const SendUserForm: React.FC<SendUserPanelProps> = ({
@@ -328,6 +338,7 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
   onConfirm,
   onError,
   onValidateRecipient,
+  transferLimits,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -342,6 +353,10 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
       : status === 'error'
       ? 'Verifiez l identifiant et reessayez.'
       : '');
+  const formatLimit = (value?: number) =>
+    value === undefined
+      ? '—'
+      : `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FRE`;
 
   const handleRequestConfirm = async () => {
     if (!form.handle || !form.amount) {
@@ -430,9 +445,15 @@ const SendUserForm: React.FC<SendUserPanelProps> = ({
               {verifyError}
             </div>
           )}
-          <p className="text-xs text-slate-500">
-            Frais fixe de {TRANSFER_FEE_LABEL} applique aux transferts entre utilisateurs.
-          </p>
+        <p className="text-xs text-slate-500">
+          Frais fixe de {TRANSFER_FEE_LABEL} applique aux transferts entre utilisateurs.
+        </p>
+        {transferLimits && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-[11px] text-slate-400">
+            Limite restante : {formatLimit(transferLimits.perTransaction)} / operation ·{' '}
+            {formatLimit(transferLimits.dailyRemaining)} / 24h (debits).
+          </div>
+        )}
           <Button
             className="w-full rounded-xl bg-emerald-500 text-slate-950 font-semibold disabled:opacity-50"
             onClick={handleRequestConfirm}
@@ -493,9 +514,18 @@ interface SendTonPanelProps {
   onChange: (form: WalletFormShape) => void;
   onConfirm: () => void;
   onError: () => void;
+  transferLimits?: TransferLimits;
 }
 
-const SendTonForm: React.FC<SendTonPanelProps> = ({ form, status, statusMessage, onChange, onConfirm, onError }) => {
+const SendTonForm: React.FC<SendTonPanelProps> = ({
+  form,
+  status,
+  statusMessage,
+  onChange,
+  onConfirm,
+  onError,
+  transferLimits,
+}) => {
   const isPending = status === 'pending';
   const resolvedMessage =
     statusMessage ||
@@ -504,6 +534,10 @@ const SendTonForm: React.FC<SendTonPanelProps> = ({ form, status, statusMessage,
       : status === 'error'
       ? 'Impossible de signer la transaction. Merci de verifier ton solde.'
       : '');
+  const formatLimit = (value?: number) =>
+    value === undefined
+      ? '—'
+      : `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FRE`;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col space-y-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
@@ -559,6 +593,12 @@ const SendTonForm: React.FC<SendTonPanelProps> = ({ form, status, statusMessage,
         <p className="text-xs text-slate-500">
           Frais fixe de {TRANSFER_FEE_LABEL} applique pour chaque envoi via TON.
         </p>
+        {transferLimits && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-[11px] text-slate-400">
+            Limite restante : {formatLimit(transferLimits.perTransaction)} / operation ·{' '}
+            {formatLimit(transferLimits.dailyRemaining)} / 24h (debits).
+          </div>
+        )}
         <div className="flex gap-3">
           <Button
             className="flex-1 rounded-xl bg-emerald-500 text-slate-950 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"

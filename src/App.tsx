@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { AuthCallback } from '@/components/auth/AuthCallback';
+import { KycPage } from '@/components/kyc/KycPage';
+import { FaqPage } from '@/components/faq/FaqPage';
 import { supabase } from '@/lib/supabaseClient';
 import './App.css';
 
@@ -186,10 +188,18 @@ function App() {
     if (typeof window === 'undefined') return false;
     return window.location.pathname.startsWith('/auth/callback');
   }, []);
+  const isKycPage = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.startsWith('/kyc');
+  }, []);
+  const isFaqPage = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.startsWith('/faq');
+  }, []);
 
   return (
     <>
-      {isAuthCallback ? <AuthCallback /> : <AppContent />}
+      {isAuthCallback ? <AuthCallback /> : isKycPage ? <KycPage /> : isFaqPage ? <FaqPage /> : <AppContent />}
       <Toaster />
     </>
   );

@@ -71,6 +71,9 @@ const RECENT_TRANSACTION_BUFFER_LIMIT = 40;
 
 const supportedCurrencies: BalanceDisplayCurrency[] = ['FRE', 'EUR', 'USDT', 'TON'];
 
+const TX_LIMIT_FRE = 1000000;
+const DAILY_LIMIT_FRE = 5000000;
+
 const twoDecimalFormatter = new Intl.NumberFormat('fr-FR', {
 
   minimumFractionDigits: 2,
@@ -255,7 +258,7 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
   const [transactions, setTransactions] = useState<TransactionDisplay[]>([]);
 
-  const [, setRawTransactions] = useState<SupabaseTransactionRow[]>([]);
+  const [rawTransactions, setRawTransactions] = useState<SupabaseTransactionRow[]>([]);
 
   const [aggregatedTransactionRows, setAggregatedTransactionRows] = useState<SupabaseTransactionRow[]>([]);
 
@@ -1653,6 +1656,22 @@ export const UtilisateurHome: React.FC<UtilisateurHomeProps> = ({
 
   }, [referralCode, authUserId]);
 
+  const transferLimits = useMemo(() => {
+    const now = Date.now();
+    const dailyUsed = rawTransactions.reduce((acc, tx) => {
+      const ts = new Date(tx.createdAt).getTime();
+      if (Number.isNaN(ts) || now - ts > 24 * 60 * 60 * 1000) return acc;
+      const amt = Number(tx.amountFre) || 0;
+      if (amt < 0) {
+        return acc + Math.abs(amt);
+      }
+      return acc;
+    }, 0);
+    const dailyRemaining = Math.max(0, DAILY_LIMIT_FRE - dailyUsed);
+    const perTxRemaining = Math.max(0, Math.min(TX_LIMIT_FRE, dailyRemaining));
+    return { perTxRemaining, dailyRemaining };
+  }, [rawTransactions]);
+
 
 
   useEffect(() => {
@@ -2548,6 +2567,11 @@ const closeTransactionDetail = useCallback(() => {
         onResetWallet={handleWalletClose}
 
         profileEmail={profileEmail}
+
+        transferLimits={{
+          perTransaction: transferLimits.perTxRemaining,
+          dailyRemaining: transferLimits.dailyRemaining,
+        }}
 
       />
 
