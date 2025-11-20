@@ -23,8 +23,13 @@ const items: Array<{
 
 export const MobileNav: React.FC<MobileNavProps> = ({ active, onChange, onHistory, historyActive }) => {
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 border-t border-slate-800 backdrop-blur">
-      <div className="max-w-xl mx-auto flex justify-around items-center px-3 py-2">
+    <nav
+      className="fixed bottom-0 inset-x-0 z-50 bg-slate-950/95 border-t border-slate-800 backdrop-blur"
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
+      }}
+    >
+      <div className="max-w-xl mx-auto flex justify-around items-center px-4 py-2">
         {items.map((item) => {
           const isHistory = item.id === 'settings';
           const isActive = isHistory ? historyActive : item.id === active;
