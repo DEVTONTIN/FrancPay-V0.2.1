@@ -2,6 +2,7 @@
 create or replace function auth_role() returns text
   language sql
   stable
+  set search_path = public
 as $$
   select coalesce(current_setting('request.jwt.claims', true)::jsonb->>'role', '');
 $$;
@@ -9,6 +10,7 @@ $$;
 create or replace function auth_user_id() returns uuid
   language sql
   stable
+  set search_path = public
 as $$
   select auth.uid();
 $$;
@@ -16,6 +18,7 @@ $$;
 create or replace function is_service_role() returns boolean
   language sql
   stable
+  set search_path = public
 as $$
   select auth_role() = 'service_role';
 $$;
@@ -161,6 +164,33 @@ create policy "stake_ledger_manage" on "UserStakeLedger"
     "authUserId" = auth_user_id()
     or is_service_role()
   );
+
+-- Idempotency keys
+alter table "UserIdempotencyKey" enable row level security;
+alter table "UserIdempotencyKey" force row level security;
+
+drop policy if exists "user_idempotency_key_read" on "UserIdempotencyKey";
+create policy "user_idempotency_key_read" on "UserIdempotencyKey"
+  for select using (
+    "authUserId" = auth_user_id()
+    or is_service_role()
+  );
+
+drop policy if exists "user_idempotency_key_insert" on "UserIdempotencyKey";
+create policy "user_idempotency_key_insert" on "UserIdempotencyKey"
+  for insert with check (
+    "authUserId" = auth_user_id()
+    or is_service_role()
+  );
+
+drop policy if exists "user_idempotency_key_manage" on "UserIdempotencyKey";
+create policy "user_idempotency_key_manage" on "UserIdempotencyKey"
+  for update using (is_service_role())
+  with check (is_service_role());
+
+drop policy if exists "user_idempotency_key_delete" on "UserIdempotencyKey";
+create policy "user_idempotency_key_delete" on "UserIdempotencyKey"
+  for delete using (is_service_role());
 
 -- On-chain deposits
 alter table "OnchainDeposit" enable row level security;

@@ -10,6 +10,10 @@ entrypoint = "./functions/fetch-price/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/fetch-price/*.html" ]
 
+# Harden Auth password checks (HaveIBeenPwned leak protection)
+[auth.hibp]
+enabled = true
+
 [functions.fre-price-snapshot]
 enabled = true
 verify_jwt = true
